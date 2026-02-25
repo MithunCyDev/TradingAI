@@ -77,3 +77,4 @@ TradingAI/
 ```
 # TradingAi
 # TradingAi
+# TradingAi
