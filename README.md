@@ -78,3 +78,4 @@ TradingAI/
 # TradingAi
 # TradingAi
 # TradingAi
+# TradingAI
