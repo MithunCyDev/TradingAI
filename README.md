@@ -76,3 +76,4 @@ TradingAI/
 └── scripts/        # CLI entry points
 ```
 # TradingAi
+# TradingAi
