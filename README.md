@@ -78,11 +78,3 @@ TradingAI/
 ├── models/         # Persisted models and config
 └── scripts/        # CLI entry points
 ```
-
-# TradingAi
-
-# TradingAi
-
-# TradingAi
-
-# TradingAI

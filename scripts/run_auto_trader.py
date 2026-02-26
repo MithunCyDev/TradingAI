@@ -23,9 +23,8 @@ except ImportError:
 
 import numpy as np
 
-from hqts.etl.clean import clean_and_validate
 from hqts.etl.economic_calendar import fetch_upcoming_events
-from hqts.etl.yfinance_fetch import fetch_yfinance
+from hqts.etl.mt5_live import fetch_data_mt5_first
 from hqts.execution.config import ExecutionConfig, MarketHoursConfig
 from hqts.execution.executor import OrderExecutor, OrderType
 from hqts.execution.market_hours import MarketHoursFilter
@@ -102,7 +101,7 @@ def log_symbol_direction(symbol: str, direction: str, prob_up: float, prob_down:
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-INTERVAL_SEC = 180  # 3 minutes
+INTERVAL_SEC = int(os.getenv("AUTO_TRADER_INTERVAL_SEC", "60"))
 MODELS_BASE = Path(os.getenv("MODELS_BASE_DIR", "models"))
 DATA_BUFFER_BARS = 500
 RR_RATIO = 2.0
@@ -216,26 +215,9 @@ def resolve_mt5_symbol(symbol: str):
 
 
 def fetch_data(symbol: str, timeframe: str = "15m"):
-    """Fetch OHLCV: try MT5 first, fallback to yfinance."""
-    try:
-        import MetaTrader5 as mt5
-        from hqts.etl.mt5_live import fetch_live_ohlcv
-
-        mt5_sym = resolve_mt5_symbol(symbol)
-        if mt5_sym:
-            mt5.symbol_select(mt5_sym, True)
-            mt5_tf = "M15" if timeframe == "15m" else ("H1" if timeframe == "1h" else timeframe)
-            df = fetch_live_ohlcv(symbol=mt5_sym, timeframe=mt5_tf, count=DATA_BUFFER_BARS)
-            df["symbol"] = symbol.upper()
-            df["timeframe"] = timeframe
-            logger.info("%s: fetched %d bars from MT5 (%s)", symbol, len(df), mt5_sym)
-            return df
-    except Exception as e:
-        logger.debug("MT5 fetch for %s failed: %s", symbol, e)
-
-    period = os.getenv("YFINANCE_PERIOD", "60d")
-    df = fetch_yfinance(symbol, interval=timeframe, period=period, force_fresh=True)
-    return clean_and_validate(df)
+    """Fetch OHLCV: try MT5 first, fallback to yfinance. Uses shared logic with API."""
+    df, _ = fetch_data_mt5_first(symbol, timeframe=timeframe, count=DATA_BUFFER_BARS)
+    return df
 
 
 def _compute_atr(high, low, close, period=14):

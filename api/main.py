@@ -2,13 +2,14 @@
 FastAPI application for HQTS prediction endpoints.
 
 Provides prediction endpoints for BTC, gold, silver, and major forex pairs.
-Each endpoint fetches latest data via yfinance and runs inference with the
-per-symbol trained model.
+Fetches real-time candle data from MT5 terminal (yfinance fallback when MT5 unavailable).
 """
 
 from __future__ import annotations
 
+import logging
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -28,19 +29,49 @@ except ImportError:
 import sys
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from hqts.etl.yfinance_fetch import fetch_yfinance
-from hqts.etl.clean import clean_and_validate
+from hqts.etl.mt5_live import fetch_data_mt5_first
 from hqts.etl.economic_calendar import fetch_upcoming_events
 from hqts.models.inference import InferenceEngine
 from hqts.execution.risk import RiskManager
+
+logger = logging.getLogger(__name__)
+
+# Track MT5 connection status (set at startup)
+_mt5_ok: bool = False
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """Initialize MT5 at startup so API uses broker data (same as run_auto_trader)."""
+    global _mt5_ok
+    _mt5_ok = False
+    if os.getenv("MT5_ENABLED", "true").lower() in ("true", "1", "yes"):
+        try:
+            import MetaTrader5 as mt5
+            if mt5.initialize():
+                _mt5_ok = True
+                logger.info("API startup: MT5 initialized successfully")
+            else:
+                logger.warning("API startup: MT5 init failed: %s", mt5.last_error())
+        except Exception as e:
+            logger.warning("API startup: MT5 not available: %s", e)
+    yield
+    try:
+        import MetaTrader5 as mt5
+        mt5.shutdown()
+    except Exception:
+        pass
+
 
 app = FastAPI(
     title="HQTS Prediction API",
     description="ML-based directional predictions for crypto, metals, and forex",
     version="1.0.0",
+    lifespan=_lifespan,
 )
 
-MODELS_BASE = Path(os.getenv("MODELS_BASE_DIR", "models"))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MODELS_BASE = PROJECT_ROOT / os.getenv("MODELS_BASE_DIR", "models")
 DATA_BUFFER_BARS = 500
 RR_RATIO = 2.0
 TRADE_PROB_THRESHOLD = float(os.getenv("TRADE_PROB_THRESHOLD", "0.6"))
@@ -102,6 +133,7 @@ class PredictionResponse(BaseModel):
     stop_loss: Optional[float] = None
     lot_size: Optional[float] = None
     data_fetched_at: str
+    data_source: str = "MT5"  # MT5 or yfinance
 
 
 def _direction_from_label(label: int) -> str:
@@ -137,15 +169,12 @@ def _predict_for_symbol(
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
 
-    period = os.getenv("YFINANCE_PERIOD", "60d")
     try:
-        df = fetch_yfinance(
+        df, data_source = fetch_data_mt5_first(
             symbol,
-            interval=timeframe,
-            period=period,
-            force_fresh=True,
+            timeframe=timeframe,
+            count=DATA_BUFFER_BARS,
         )
-        df = clean_and_validate(df)
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Data fetch failed: {e}") from e
 
@@ -224,6 +253,7 @@ def _predict_for_symbol(
         stop_loss=stop_loss,
         lot_size=lot_size,
         data_fetched_at=datetime.now(timezone.utc).isoformat(),
+        data_source=data_source,
     )
 
 
@@ -231,6 +261,15 @@ def _predict_for_symbol(
 def health() -> dict:
     """Health check endpoint."""
     return {"status": "ok"}
+
+
+@app.get("/api/status")
+def status() -> dict:
+    """Show MT5 connection and data source. Use MT5 for predictions to match run_auto_trader."""
+    return {
+        "mt5_initialized": _mt5_ok,
+        "data_source_note": "MT5" if _mt5_ok else "yfinance (MT5 unavailable - predictions may differ from run_auto_trader)",
+    }
 
 
 @app.get("/api/symbols")
