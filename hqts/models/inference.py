@@ -93,17 +93,27 @@ class InferenceEngine:
         pred_idx = np.argmax(proba, axis=1)
         return np.array([self._inv_label_map.get(i, 0) for i in pred_idx])
 
-    def run(self, ohlcv_df: pd.DataFrame) -> dict:
+    def run(
+        self,
+        ohlcv_df: pd.DataFrame,
+        events: Optional[list] = None,
+        zone_width_atr: Optional[float] = None,
+    ) -> dict:
         """
         Full pipeline: compute features from OHLCV, then predict.
 
         Args:
             ohlcv_df: Raw OHLCV DataFrame with time, open, high, low, close, tick_volume.
+            events: Optional economic calendar events for is_news_window feature.
+            zone_width_atr: Optional ATR multiplier for demand/supply zone width.
 
         Returns:
             Dict with keys: label, prob_up, prob_down, prob_range, probabilities.
         """
-        featured = compute_features(ohlcv_df)
+        kwargs = {"events": events}
+        if zone_width_atr is not None:
+            kwargs["zone_width_atr"] = zone_width_atr
+        featured = compute_features(ohlcv_df, **kwargs)
         if featured.empty:
             return {"label": 0, "prob_up": 0.0, "prob_down": 0.0, "prob_range": 1.0, "probabilities": None}
 

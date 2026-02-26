@@ -2,8 +2,8 @@
 
 # Columns used as model inputs (exclude identifiers and targets)
 FEATURE_COLUMNS = [
-    "symbol_encoded",   # For multi-asset; omit if single symbol
-    "timeframe_encoded",  # 15m=0, 1h=1, 4h=2
+    "symbol_encoded",
+    "timeframe_encoded",
     "atr",
     "rsi",
     "vwap_dist",
@@ -18,6 +18,19 @@ FEATURE_COLUMNS = [
     "fvg_bearish",
     "near_fvg_bull",
     "near_fvg_bear",
+    "atr_pct",
+    "bb_width",
+    "volatility_regime",
+    "ob_zone_strength",
+    "dist_to_demand",
+    "dist_to_supply",
+    "in_demand_zone",
+    "in_supply_zone",
+    "is_liquidity_sweep_bull",
+    "is_liquidity_sweep_bear",
+    "near_liquidity_sweep_bull",
+    "near_liquidity_sweep_bear",
+    "is_news_window",
 ]
 
 TARGET_COLUMN = "label"

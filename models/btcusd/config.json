@@ -1,0 +1,45 @@
+{
+  "feature_cols": [
+    "symbol_encoded",
+    "timeframe_encoded",
+    "atr",
+    "rsi",
+    "vwap_dist",
+    "hour",
+    "dow",
+    "session",
+    "swing_high",
+    "swing_low",
+    "is_swing_high",
+    "is_swing_low",
+    "fvg_bullish",
+    "fvg_bearish",
+    "near_fvg_bull",
+    "near_fvg_bear",
+    "atr_pct",
+    "bb_width",
+    "volatility_regime",
+    "ob_zone_strength",
+    "dist_to_demand",
+    "dist_to_supply",
+    "in_demand_zone",
+    "in_supply_zone",
+    "is_liquidity_sweep_bull",
+    "is_liquidity_sweep_bear",
+    "near_liquidity_sweep_bull",
+    "near_liquidity_sweep_bear",
+    "is_news_window"
+  ],
+  "model_type": "random_forest",
+  "scale_features": true,
+  "label_map": {
+    "-1": 0,
+    "0": 1,
+    "1": 2
+  },
+  "inv_label_map": {
+    "0": -1,
+    "1": 0,
+    "2": 1
+  }
+}

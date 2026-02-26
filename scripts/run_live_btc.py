@@ -18,6 +18,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 import pandas as pd
 
 from hqts.etl.mt5_live import fetch_live_ohlcv, get_account_info, initialize_mt5, resolve_btc_symbol

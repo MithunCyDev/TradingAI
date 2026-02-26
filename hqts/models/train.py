@@ -55,6 +55,7 @@ def train_model(
     test_size: float = 0.2,
     scale_features: bool = True,
     output_dir: str | Path = "models",
+    cv_splits: Optional[int] = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """
@@ -66,6 +67,7 @@ def train_model(
         test_size: Fraction of data for holdout (from end).
         scale_features: Whether to StandardScaler X.
         output_dir: Directory to save model, scaler, config.
+        cv_splits: If set, run TimeSeriesSplit cross-validation and log mean scores.
         **kwargs: Extra args for the classifier.
 
     Returns:
@@ -83,6 +85,41 @@ def train_model(
     split_idx = int(n * (1 - test_size))
     X_train, X_test = X[:split_idx], X[split_idx:]
     y_train, y_test = y[:split_idx], y[split_idx:]
+
+    if cv_splits is not None and cv_splits > 1:
+        tscv = TimeSeriesSplit(n_splits=cv_splits)
+        cv_train_scores, cv_test_scores = [], []
+        for train_idx, test_idx in tscv.split(X):
+            X_cv_train, X_cv_test = X[train_idx], X[test_idx]
+            y_cv_train, y_cv_test = y[train_idx], y[test_idx]
+            if scale_features:
+                scaler_cv = StandardScaler()
+                X_cv_train = scaler_cv.fit_transform(X_cv_train)
+                X_cv_test = scaler_cv.transform(X_cv_test)
+            if model_type == "xgboost" and HAS_XGB:
+                clf_cv = xgb.XGBClassifier(
+                    n_estimators=kwargs.get("n_estimators", 200),
+                    max_depth=kwargs.get("max_depth", 6),
+                    learning_rate=kwargs.get("learning_rate", 0.05),
+                    random_state=42,
+                    use_label_encoder=False,
+                    eval_metric="logloss",
+                )
+            else:
+                clf_cv = RandomForestClassifier(
+                    n_estimators=kwargs.get("n_estimators", 200),
+                    max_depth=kwargs.get("max_depth", 12),
+                    random_state=42,
+                )
+            clf_cv.fit(X_cv_train, y_cv_train)
+            cv_train_scores.append(clf_cv.score(X_cv_train, y_cv_train))
+            cv_test_scores.append(clf_cv.score(X_cv_test, y_cv_test))
+        logger.info(
+            "TimeSeriesSplit(n=%d): mean train=%.4f, mean test=%.4f",
+            cv_splits,
+            sum(cv_train_scores) / len(cv_train_scores),
+            sum(cv_test_scores) / len(cv_test_scores),
+        )
 
     if scale_features:
         scaler = StandardScaler()
@@ -154,6 +191,12 @@ def main() -> None:
     parser.add_argument("--model", choices=["xgboost", "random_forest"], default="xgboost")
     parser.add_argument("--test-size", type=float, default=0.2)
     parser.add_argument("--no-scale", action="store_true", help="Disable feature scaling")
+    parser.add_argument(
+        "--cv-splits",
+        type=int,
+        default=None,
+        help="Run TimeSeriesSplit cross-validation with N splits (e.g., 5)",
+    )
     args = parser.parse_args()
 
     df = pd.read_csv(args.input)
@@ -167,6 +210,7 @@ def main() -> None:
         test_size=args.test_size,
         scale_features=not args.no_scale,
         output_dir=args.output_dir,
+        cv_splits=args.cv_splits,
     )
     logger.info("Train accuracy: %.4f, Test accuracy: %.4f", result["train_accuracy"], result["test_accuracy"])
 

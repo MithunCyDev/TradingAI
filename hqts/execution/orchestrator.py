@@ -8,6 +8,7 @@ Runs in a loop (or on bar-close events) to evaluate and execute trades.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Optional
 
@@ -49,6 +50,10 @@ class TradingOrchestrator:
             require_fvg=self.config.smc.require_fvg,
             require_liquidity_sweep=self.config.smc.require_liquidity_sweep,
             ob_lookback=self.config.smc.ob_lookback_bars,
+            fvg_min_size_atr=self.config.smc.fvg_min_size_atr,
+            min_ob_strength=self.config.smc.min_ob_strength,
+            zone_width_atr=self.config.smc.zone_width_atr,
+            require_price_in_zone=self.config.smc.require_price_in_zone,
         )
         self.market_hours = MarketHoursFilter(self.config.market_hours)
         self.inference = InferenceEngine(model_dir=self.config.model_dir)
@@ -76,10 +81,13 @@ class TradingOrchestrator:
             logger.debug("Market closed: skipping trade")
             return None
 
-        result = self.inference.run(self._buffer)
+        result = self.inference.run(
+            self._buffer,
+            zone_width_atr=self.config.smc.zone_width_atr,
+        )
         prob_up = result["prob_up"]
         prob_down = result["prob_down"]
-        threshold = 0.55  # Configurable
+        threshold = float(os.getenv("TRADE_PROB_THRESHOLD", "0.6"))
 
         if prob_up >= threshold and prob_up > prob_down:
             if self.smc.validate_buy(self._buffer):

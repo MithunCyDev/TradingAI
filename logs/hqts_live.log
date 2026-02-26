@@ -37,3 +37,28 @@
 2026-02-26 16:03:08 [INFO] __main__: Account equity: 963.88
 2026-02-26 16:03:08 [INFO] hqts.execution.executor: PAPER: sell 0.04 lots BTCUSDm SL=68843.04 TP=68133.67
 2026-02-26 16:03:08 [INFO] __main__: Signal: sell | prob_up=0.18 prob_down=0.66
+2026-02-26 16:11:02 [INFO] hqts.etl.extract: MT5 initialized successfully
+2026-02-26 16:11:02 [INFO] __main__: Using symbol: BTCUSDm
+2026-02-26 16:11:02 [INFO] __main__: Account equity: 937.12
+2026-02-26 16:11:02 [INFO] hqts.execution.executor: PAPER: sell 0.04 lots BTCUSDm SL=68902.59 TP=68175.09
+2026-02-26 16:11:02 [INFO] __main__: Signal: sell | prob_up=0.18 prob_down=0.66
+2026-02-26 19:20:37 [INFO] hqts.etl.extract: MT5 initialized successfully
+2026-02-26 19:20:37 [INFO] __main__: Using symbol: BTCUSDm
+2026-02-26 19:20:37 [INFO] __main__: Account equity: 1092.34
+2026-02-26 19:20:37 [INFO] __main__: No signal | prob_up=0.32 prob_down=0.49 prob_range=0.19
+2026-02-26 19:26:51 [INFO] hqts.etl.extract: MT5 initialized successfully
+2026-02-26 19:26:51 [INFO] __main__: Using symbol: BTCUSDm
+2026-02-26 19:26:51 [INFO] __main__: Account equity: 1092.34
+2026-02-26 19:26:51 [INFO] __main__: No signal | prob_up=0.32 prob_down=0.50 prob_range=0.18
+2026-02-26 20:36:57 [INFO] hqts.etl.extract: MT5 initialized successfully
+2026-02-26 20:36:57 [INFO] __main__: Using symbol: BTCUSDm
+2026-02-26 20:36:57 [INFO] __main__: Account equity: 950.07
+2026-02-26 20:36:57 [INFO] __main__: No signal | prob_up=0.24 prob_down=0.55 prob_range=0.22
+2026-02-26 20:37:39 [INFO] hqts.etl.extract: MT5 initialized successfully
+2026-02-26 20:37:39 [INFO] __main__: Using symbol: BTCUSDm
+2026-02-26 20:37:39 [INFO] __main__: Account equity: 950.07
+2026-02-26 20:37:39 [INFO] __main__: No signal | prob_up=0.24 prob_down=0.55 prob_range=0.21
+2026-02-26 20:45:18 [INFO] hqts.etl.extract: MT5 initialized successfully
+2026-02-26 20:45:18 [INFO] __main__: Using symbol: BTCUSDm
+2026-02-26 20:45:18 [INFO] __main__: Account equity: 950.07
+2026-02-26 20:45:18 [INFO] __main__: No signal | prob_up=0.26 prob_down=0.53 prob_range=0.21

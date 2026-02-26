@@ -6,9 +6,40 @@ Centralizes all tunable parameters for risk, execution, and SMC filters.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
+
+
+def _env_bool(key: str, default: bool) -> bool:
+    """Parse env var as bool; 'true'/'1'/'yes' -> True, else False."""
+    val = os.getenv(key)
+    if val is None:
+        return default
+    return str(val).lower() in ("true", "1", "yes")
+
+
+def _env_int(key: str, default: int) -> int:
+    """Parse env var as int; invalid values fall back to default."""
+    val = os.getenv(key)
+    if val is None:
+        return default
+    try:
+        return int(val)
+    except ValueError:
+        return default
+
+
+def _env_float(key: str, default: float) -> float:
+    """Parse env var as float; invalid values fall back to default."""
+    val = os.getenv(key)
+    if val is None:
+        return default
+    try:
+        return float(val)
+    except ValueError:
+        return default
 
 
 @dataclass
@@ -73,11 +104,24 @@ class MarketHoursConfig:
 class SMCConfig:
     """Smart Money Concepts filter parameters."""
 
-    require_order_block: bool = True
-    require_fvg: bool = False  # Alternative: FVG confirmation
+    require_order_block: bool = field(default=True)
+    require_fvg: bool = False
     require_liquidity_sweep: bool = False
     ob_lookback_bars: int = 20
     fvg_min_size_atr: float = 0.3
+    zone_width_atr: float = 0.5
+    min_ob_strength: float = 0.0
+    require_price_in_zone: bool = False
+
+    def __post_init__(self) -> None:
+        self.require_order_block = _env_bool("SMC_REQUIRE_ORDER_BLOCK", self.require_order_block)
+        self.require_fvg = _env_bool("SMC_REQUIRE_FVG", self.require_fvg)
+        self.require_liquidity_sweep = _env_bool("SMC_REQUIRE_LIQUIDITY_SWEEP", self.require_liquidity_sweep)
+        self.ob_lookback_bars = _env_int("SMC_OB_LOOKBACK_BARS", self.ob_lookback_bars)
+        self.fvg_min_size_atr = _env_float("SMC_FVG_MIN_SIZE_ATR", self.fvg_min_size_atr)
+        self.zone_width_atr = _env_float("SMC_ZONE_WIDTH_ATR", self.zone_width_atr)
+        self.min_ob_strength = _env_float("SMC_MIN_OB_STRENGTH", self.min_ob_strength)
+        self.require_price_in_zone = _env_bool("SMC_REQUIRE_PRICE_IN_ZONE", self.require_price_in_zone)
 
 
 @dataclass

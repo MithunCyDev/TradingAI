@@ -82,11 +82,59 @@ def _fvg_bearish(high: pd.Series, low: pd.Series) -> pd.Series:
     return gap.where(gap > 0, np.nan)
 
 
+def _bb_width(close: pd.Series, period: int = 20, std_dev: float = 2.0) -> pd.Series:
+    """Bollinger Bands width normalized by close."""
+    sma = close.rolling(period).mean()
+    std = close.rolling(period).std()
+    upper = sma + std_dev * std
+    lower = sma - std_dev * std
+    width = (upper - lower) / close.replace(0, np.nan)
+    return width
+
+
+def _bullish_ob_candle(open_: pd.Series, high: pd.Series, low: pd.Series, close: pd.Series) -> pd.Series:
+    """Last down candle before strong up move; returns zone size (high-low) or NaN."""
+    down = close < open_
+    strong_up = (close - open_).shift(-1) > (high - low).shift(-1) * 0.5
+    ob = down & strong_up.shift(1)
+    zone_size = (high - low).where(ob, np.nan)
+    return zone_size
+
+
+def _bearish_ob_candle(open_: pd.Series, high: pd.Series, low: pd.Series, close: pd.Series) -> pd.Series:
+    """Last up candle before strong down move; returns zone size or NaN."""
+    up = close > open_
+    strong_down = (open_ - close).shift(-1) > (high - low).shift(-1) * 0.5
+    ob = up & strong_down.shift(1)
+    zone_size = (high - low).where(ob, np.nan)
+    return zone_size
+
+
+def _liquidity_sweep_bull(low: pd.Series, close: pd.Series, swing_low: pd.Series) -> pd.Series:
+    """Price swept below swing low then reversed (bullish liquidity sweep)."""
+    prior_sl = swing_low.shift(1)
+    swept_below = (low < prior_sl) & prior_sl.notna()
+    reversed_up = close.shift(-1) > low
+    return (swept_below & reversed_up.fillna(False)).astype(int)
+
+
+def _liquidity_sweep_bear(high: pd.Series, close: pd.Series, swing_high: pd.Series) -> pd.Series:
+    """Price swept above swing high then reversed (bearish liquidity sweep)."""
+    prior_sh = swing_high.shift(1)
+    swept_above = (high > prior_sh) & prior_sh.notna()
+    reversed_down = close.shift(-1) < high
+    return (swept_above & reversed_down.fillna(False)).astype(int)
+
+
 def compute_features(
     df: pd.DataFrame,
     atr_period: int = 14,
     rsi_period: int = 14,
     swing_lookback: int = 2,
+    zone_width_atr: float = 0.5,
+    events: Optional[list] = None,
+    news_minutes_before: int = 30,
+    news_minutes_after: int = 30,
 ) -> pd.DataFrame:
     """
     Compute ML-ready features from OHLCV DataFrame.
@@ -96,6 +144,10 @@ def compute_features(
         atr_period: ATR lookback period.
         rsi_period: RSI lookback period.
         swing_lookback: Bars left/right for swing high/low detection.
+        zone_width_atr: ATR multiplier for demand/supply zone band width.
+        events: Economic calendar events (from fetch_upcoming_events) for is_news_window.
+        news_minutes_before: Minutes before event for news window.
+        news_minutes_after: Minutes after event for news window.
 
     Returns:
         DataFrame with original columns plus feature columns.
@@ -111,6 +163,15 @@ def compute_features(
 
     # Volatility
     out["atr"] = _atr(high, low, close, atr_period)
+    out["atr_pct"] = out["atr"] / close.replace(0, np.nan)
+    out["bb_width"] = _bb_width(close)
+    atr_pct_50 = out["atr_pct"].rolling(50, min_periods=20)
+    p33 = atr_pct_50.quantile(0.33)
+    p67 = atr_pct_50.quantile(0.67)
+    out["volatility_regime"] = 0
+    out.loc[out["atr_pct"] <= p33, "volatility_regime"] = 0
+    out.loc[(out["atr_pct"] > p33) & (out["atr_pct"] <= p67), "volatility_regime"] = 1
+    out.loc[out["atr_pct"] > p67, "volatility_regime"] = 2
 
     # Momentum
     out["rsi"] = _rsi(close, rsi_period)
@@ -155,5 +216,42 @@ def compute_features(
     out["fvg_bearish"] = _fvg_bearish(high, low)
     out["near_fvg_bull"] = (low <= out["fvg_bullish"].shift(1) + out["atr"] * 0.1).astype(int)
     out["near_fvg_bear"] = (high >= out["fvg_bearish"].shift(1) - out["atr"] * 0.1).astype(int)
+
+    # Supply/demand zone features
+    ob_bull_size = _bullish_ob_candle(df["open"], high, low, close)
+    ob_bear_size = _bearish_ob_candle(df["open"], high, low, close)
+    out["ob_zone_strength"] = ob_bull_size.fillna(ob_bear_size).fillna(0) / out["atr"].replace(0, np.nan)
+    out["ob_zone_strength"] = out["ob_zone_strength"].fillna(0)
+
+    atr_safe = out["atr"].replace(0, np.nan)
+    out["dist_to_demand"] = (close - out["swing_low"]) / atr_safe
+    out["dist_to_supply"] = (out["swing_high"] - close) / atr_safe
+    out["dist_to_demand"] = out["dist_to_demand"].fillna(0)
+    out["dist_to_supply"] = out["dist_to_supply"].fillna(0)
+
+    out["in_demand_zone"] = ((close - out["swing_low"]).abs() <= zone_width_atr * out["atr"]).astype(int)
+    out["in_supply_zone"] = ((out["swing_high"] - close).abs() <= zone_width_atr * out["atr"]).astype(int)
+
+    # Liquidity sweep features
+    out["is_liquidity_sweep_bull"] = _liquidity_sweep_bull(low, close, out["swing_low"])
+    out["is_liquidity_sweep_bear"] = _liquidity_sweep_bear(high, close, out["swing_high"])
+    out["near_liquidity_sweep_bull"] = out["is_liquidity_sweep_bull"].rolling(5, min_periods=1).max().astype(int)
+    out["near_liquidity_sweep_bear"] = out["is_liquidity_sweep_bear"].rolling(5, min_periods=1).max().astype(int)
+
+    # News window feature
+    if events and "time" in df.columns:
+        try:
+            from hqts.etl.economic_calendar import is_in_news_window
+
+            def _check_news(t):
+                dt = pd.Timestamp(t).to_pydatetime() if hasattr(t, "to_pydatetime") else t
+                return 1 if is_in_news_window(dt, events, news_minutes_before, news_minutes_after) else 0
+
+            out["is_news_window"] = df["time"].apply(_check_news)
+        except Exception as ex:
+            logger.debug("is_news_window computation failed: %s", ex)
+            out["is_news_window"] = 0
+    else:
+        out["is_news_window"] = 0
 
     return out

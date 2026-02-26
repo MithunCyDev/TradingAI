@@ -1,0 +1,1 @@
+"""HQTS FastAPI application."""

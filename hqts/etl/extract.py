@@ -104,12 +104,15 @@ def extract_historical_data(
     if mt5 is None:
         raise RuntimeError("MetaTrader5 not installed")
 
+    if not mt5.symbol_select(symbol, True):
+        logger.warning("symbol_select(%s) returned False; symbol may not be in Market Watch", symbol)
+
     tf_val = _get_mt5_timeframe(timeframe)
     rates = mt5.copy_rates_from_pos(symbol, tf_val, start_pos, count)
 
     if rates is None or len(rates) == 0:
         err = mt5.last_error()
-        raise RuntimeError(f"MT5 copy_rates_from_pos failed: {err}")
+        raise RuntimeError(f"MT5 copy_rates_from_pos failed for {symbol}: {err}")
 
     df = pd.DataFrame(rates)
     df["time"] = pd.to_datetime(df["time"], unit="s", utc=True)

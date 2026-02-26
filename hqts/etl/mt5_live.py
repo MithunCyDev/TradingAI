@@ -24,6 +24,42 @@ logger = logging.getLogger(__name__)
 # Common BTC symbol names across brokers
 BTC_SYMBOL_ALIASES = ("BTCUSD", "BTCUSDm", "BTCUSD.a", "BTCUSDm.a", "BTCUSD#", "BTCUSDm#")
 
+# Symbol -> MT5 broker aliases (first match wins)
+MT5_SYMBOL_ALIASES: dict[str, tuple[str, ...]] = {
+    "USTECH": ("US100", "NAS100", "USTEC", "USTECH", "US500", "NDX"),
+    "USOIL": ("USOIL", "WTI", "XTIUSD", "CL", "USOILm", "WTI.a"),
+}
+
+
+def resolve_mt5_symbol_for_fetch(symbol: str) -> Optional[str]:
+    """
+    Find the first available MT5 symbol for historical fetch.
+
+    Returns:
+        MT5 symbol name (e.g. US100 for USTECH) or None if not found.
+    """
+    if mt5 is None:
+        return None
+    sym_upper = symbol.upper()
+    symbols = mt5.symbols_get()
+    if symbols is None:
+        return None
+    candidates = {s.name.upper(): s.name for s in symbols}
+
+    aliases = MT5_SYMBOL_ALIASES.get(sym_upper)
+    if aliases:
+        for alias in aliases:
+            if alias.upper() in candidates:
+                return candidates[alias.upper()]
+
+    if sym_upper in candidates:
+        return candidates[sym_upper]
+    for suffix in ("M", "m", ".A", "#"):
+        cand = sym_upper + suffix
+        if cand in candidates:
+            return candidates[cand]
+    return None
+
 
 def resolve_btc_symbol() -> Optional[str]:
     """
