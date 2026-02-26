@@ -5,11 +5,13 @@ A data-driven algorithmic trading system combining custom ML forecasting with Sm
 **Platform: Windows** (MetaTrader5 requires Windows)
 
 ## Target Assets
+
 - Spot Metals: XAUUSD, XAGUSD
 - Major Forex pairs
 - Crypto: BTCUSD
 
 ## Architecture
+
 - **Data Layer**: MT5 Terminal (tick + OHLCV)
 - **Intelligence Engine**: Custom ML models (XGBoost/RandomForest)
 - **Execution**: SMC-based rule engine with risk controls
@@ -23,6 +25,7 @@ A data-driven algorithmic trading system combining custom ML forecasting with Sm
 4. Install MetaTrader 5 terminal and log in
 
 ## Quick Start
+
 ```bash
 # Generate sample data
 python scripts/generate_sample_data.py
@@ -38,30 +41,30 @@ python scripts/run_bot.py
 ```
 
 ## Fine-tune with Live Data (BTCUSD + XAUUSD, 15m/1h/4h)
+
 ```bash
 # Fetch 2 months of BTCUSD and XAUUSD across 15m, 1h, 4h timeframes, then train
 python scripts/fetch_and_finetune.py
 ```
 
 ## Live Data (MT5)
+
 ```bash
 # Ensure MT5 terminal is running, then:
 python -m hqts.etl.extract --symbol XAUUSD --timeframe M15 --count 100000
 ```
 
 ## Live BTC Trading
-```bash
-# Paper trade (no real orders)
-python scripts/run_live_btc.py --paper
 
-# Real trading (MT5 must be logged in)
-python scripts/run_live_btc.py
+```bash
+
 
 # Custom symbol or timeframe
 python scripts/run_live_btc.py --symbol BTCUSDm --timeframe H1 --paper
 ```
 
 ## Project Structure
+
 ```
 TradingAI/
 ├── data/           # Raw and cleaned datasets
@@ -75,7 +78,11 @@ TradingAI/
 ├── models/         # Persisted models and config
 └── scripts/        # CLI entry points
 ```
+
 # TradingAi
+
 # TradingAi
+
 # TradingAi
+
 # TradingAI
