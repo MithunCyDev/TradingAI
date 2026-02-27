@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 from hqts.features.engineering import compute_features
-from hqts.features.labeling import compute_labels
+from hqts.features.labeling import compute_labels, compute_labels_pullback
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,8 @@ def run_feature_pipeline(
     rsi_period: int = 14,
     rr_ratio: float = 2.0,
     horizon_bars: int = 16,
+    pullback_mode: bool = False,
+    zone_width_atr: float = 0.75,
 ) -> pd.DataFrame:
     """
     Load cleaned OHLCV, compute features and labels, optionally save.
@@ -43,7 +45,13 @@ def run_feature_pipeline(
         df["time"] = pd.to_datetime(df["time"])
 
     df = compute_features(df, atr_period=atr_period, rsi_period=rsi_period)
-    df["label"] = compute_labels(df, rr_ratio=rr_ratio, horizon_bars=horizon_bars)
+    if pullback_mode:
+        df["label"] = compute_labels_pullback(
+            df, rr_ratio=rr_ratio, horizon_bars=horizon_bars, zone_width_atr=zone_width_atr
+        )
+        logger.info("Using pullback-aware labeling (zone_width_atr=%.2f)", zone_width_atr)
+    else:
+        df["label"] = compute_labels(df, rr_ratio=rr_ratio, horizon_bars=horizon_bars)
 
     # Drop rows with NaN from rolling computations (first ~14+ bars)
     df = df.dropna(subset=["atr", "rsi", "label"]).reset_index(drop=True)
@@ -66,6 +74,8 @@ def main() -> None:
     parser.add_argument("--rsi-period", type=int, default=14)
     parser.add_argument("--rr-ratio", type=float, default=2.0)
     parser.add_argument("--horizon-bars", type=int, default=16)
+    parser.add_argument("--pullback", action="store_true", help="Use pullback-aware labeling")
+    parser.add_argument("--zone-width-atr", type=float, default=0.75)
     args = parser.parse_args()
 
     output = args.output or str(Path(args.input).parent / "featured" / Path(args.input).name)
@@ -76,6 +86,8 @@ def main() -> None:
         rsi_period=args.rsi_period,
         rr_ratio=args.rr_ratio,
         horizon_bars=args.horizon_bars,
+        pullback_mode=args.pullback,
+        zone_width_atr=args.zone_width_atr,
     )
 
 

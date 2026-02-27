@@ -89,6 +89,7 @@ class MarketHoursConfig:
     When enabled, blocks new trades outside trading hours.
     Forex/metals: typically closed Friday evening–Sunday evening (UTC).
     Crypto (BTCUSD): 24/7; set weekend_closed=False for crypto-only.
+    Set MARKET_HOURS_ENABLED=false in .env to bypass (always allow trading).
     """
 
     enabled: bool = True
@@ -98,6 +99,9 @@ class MarketHoursConfig:
     # Optional: restrict to specific hours (e.g. London+NY overlap only)
     trading_start_utc_hour: Optional[int] = None  # None = no start limit
     trading_end_utc_hour: Optional[int] = None   # None = no end limit
+
+    def __post_init__(self) -> None:
+        self.enabled = _env_bool("MARKET_HOURS_ENABLED", self.enabled)
 
 
 @dataclass
@@ -117,7 +121,8 @@ class SMCConfig:
         self.require_order_block = _env_bool("SMC_REQUIRE_ORDER_BLOCK", self.require_order_block)
         self.require_fvg = _env_bool("SMC_REQUIRE_FVG", self.require_fvg)
         self.require_liquidity_sweep = _env_bool("SMC_REQUIRE_LIQUIDITY_SWEEP", self.require_liquidity_sweep)
-        self.ob_lookback_bars = _env_int("SMC_OB_LOOKBACK_BARS", self.ob_lookback_bars)
+        raw = _env_int("SMC_OB_LOOKBACK_BARS", self.ob_lookback_bars)
+        self.ob_lookback_bars = max(1, raw)  # SMC needs at least 1 bar to validate
         self.fvg_min_size_atr = _env_float("SMC_FVG_MIN_SIZE_ATR", self.fvg_min_size_atr)
         self.zone_width_atr = _env_float("SMC_ZONE_WIDTH_ATR", self.zone_width_atr)
         self.min_ob_strength = _env_float("SMC_MIN_OB_STRENGTH", self.min_ob_strength)

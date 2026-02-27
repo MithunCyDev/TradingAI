@@ -29,7 +29,7 @@ BTC_SYMBOL_ALIASES = ("BTCUSD", "BTCUSDm", "BTCUSD.a", "BTCUSDm.a", "BTCUSD#", "
 MT5_SYMBOL_ALIASES: dict[str, tuple[str, ...]] = {
     "XAUUSD": ("XAUUSD", "XAUUSDm", "GOLD", "GOLDm", "XAUUSD.a"),
     "XAGUSD": ("XAGUSD", "XAGUSDm", "SILVER", "SILVERm", "XAGUSD.a"),
-    "USTECH": ("US100", "NAS100", "USTEC", "USTECH", "US500", "NDX"),
+    "USTECH": ("$USTECm", "USTECm", "US100", "NAS100", "USTEC", "USTECH", "US500", "NDX"),
     "USOIL": ("USOIL", "WTI", "XTIUSD", "CL", "USOILm", "WTI.a"),
 }
 
@@ -110,7 +110,7 @@ def resolve_mt5_symbol(symbol: str) -> Optional[str]:
                 return name
         for alias in MT5_SYMBOL_ALIASES.get(target, ()):
             for name in candidates:
-                if name.upper() == alias:
+                if name.upper() == alias.upper():
                     return name
         for name in candidates:
             name_upper = name.upper()

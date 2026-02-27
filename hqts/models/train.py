@@ -56,6 +56,7 @@ def train_model(
     scale_features: bool = True,
     output_dir: str | Path = "models",
     cv_splits: Optional[int] = None,
+    sample_weight: Optional[np.ndarray] = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """
@@ -85,6 +86,7 @@ def train_model(
     split_idx = int(n * (1 - test_size))
     X_train, X_test = X[:split_idx], X[split_idx:]
     y_train, y_test = y[:split_idx], y[split_idx:]
+    sw_train = sample_weight[:split_idx] if sample_weight is not None and len(sample_weight) == n else None
 
     if cv_splits is not None and cv_splits > 1:
         tscv = TimeSeriesSplit(n_splits=cv_splits)
@@ -144,7 +146,7 @@ def train_model(
             random_state=42,
         )
 
-    clf.fit(X_train, y_train)
+    clf.fit(X_train, y_train, sample_weight=sw_train)
     score_train = clf.score(X_train, y_train)
     score_test = clf.score(X_test, y_test)
 

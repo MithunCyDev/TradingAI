@@ -39,7 +39,8 @@ def generate_sample_ohlcv(
 
 
 def main() -> None:
-    out = Path("data/clean")
+    project_root = Path(__file__).resolve().parent.parent
+    out = project_root / "data" / "clean"
     out.mkdir(parents=True, exist_ok=True)
     df = generate_sample_ohlcv(5000)
     path = out / "XAUUSD_M15_sample.csv"

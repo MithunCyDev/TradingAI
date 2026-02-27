@@ -85,7 +85,6 @@ ENDPOINT_SYMBOLS = {
     "usdjpy": ("USDJPY", "usdjpy"),
     "gbpusd": ("GBPUSD", "gbpusd"),
     "audusd": ("AUDUSD", "audusd"),
-    "usdchf": ("USDCHF", "usdchf"),
 }
 
 # (pip_value_per_lot, sl_pips_multiplier) per symbol for lot sizing
@@ -97,7 +96,6 @@ SYMBOL_RISK_CONFIG = {
     "USDJPY": (9.0, 100.0),
     "GBPUSD": (10.0, 10000.0),
     "AUDUSD": (10.0, 10000.0),
-    "USDCHF": (10.0, 10000.0),
 }
 
 # Cache for InferenceEngine instances
@@ -344,12 +342,3 @@ def predict_audusd(
 ) -> PredictionResponse:
     """Get AUD/USD prediction. Pass equity (account balance) for lot size calculation."""
     return _predict_for_symbol("AUDUSD", "audusd", timeframe, equity)
-
-
-@app.get("/api/predict/usdchf", response_model=PredictionResponse)
-def predict_usdchf(
-    timeframe: str = "15m",
-    equity: Optional[float] = Query(default=None, description="Account balance for lot size (default 10000 if not provided)"),
-) -> PredictionResponse:
-    """Get USD/CHF prediction. Pass equity (account balance) for lot size calculation."""
-    return _predict_for_symbol("USDCHF", "usdchf", timeframe, equity)

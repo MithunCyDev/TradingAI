@@ -232,11 +232,59 @@ def compute_features(
     out["in_demand_zone"] = ((close - out["swing_low"]).abs() <= zone_width_atr * out["atr"]).astype(int)
     out["in_supply_zone"] = ((out["swing_high"] - close).abs() <= zone_width_atr * out["atr"]).astype(int)
 
+    # Pullback features: price retraced into zone (came from above into demand, or from below into supply)
+    out["pullback_bull"] = (
+        (out["in_demand_zone"] == 1) & (close < close.shift(2))
+    ).fillna(False).astype(int)
+    out["pullback_bear"] = (
+        (out["in_supply_zone"] == 1) & (close > close.shift(2))
+    ).fillna(False).astype(int)
+
     # Liquidity sweep features
     out["is_liquidity_sweep_bull"] = _liquidity_sweep_bull(low, close, out["swing_low"])
     out["is_liquidity_sweep_bear"] = _liquidity_sweep_bear(high, close, out["swing_high"])
     out["near_liquidity_sweep_bull"] = out["is_liquidity_sweep_bull"].rolling(5, min_periods=1).max().astype(int)
     out["near_liquidity_sweep_bear"] = out["is_liquidity_sweep_bear"].rolling(5, min_periods=1).max().astype(int)
+
+    # Supply/demand zone features
+    from hqts.features.supply_demand import compute_supply_demand_features
+    compute_supply_demand_features(out, zone_width_atr=zone_width_atr, freshness_bars=20)
+
+    # Candlestick patterns (TA-Lib); -100/0/+100 -> -1/0/1 for ML
+    try:
+        import talib
+        o, h, l_, c = df["open"].values, high.values, low.values, close.values
+        patterns = [
+            ("is_doji", talib.CDLDOJI),
+            ("is_hammer", talib.CDLHAMMER),
+            ("is_engulfing", talib.CDLENGULFING),
+            ("is_harami", talib.CDLHARAMI),
+            ("is_morning_star", talib.CDLMORNINGSTAR),
+            ("is_evening_star", talib.CDLEVENINGSTAR),
+            ("is_shooting_star", talib.CDLSHOOTINGSTAR),
+            ("is_3_white_soldiers", talib.CDL3WHITESOLDIERS),
+            ("is_3_black_crows", talib.CDL3BLACKCROWS),
+        ]
+        for name, func in patterns:
+            arr = func(o, h, l_, c)
+            out[name] = np.where(np.isnan(arr), 0, np.sign(arr)).astype(int)
+        pat_cols = [p[0] for p in patterns]
+        out["has_bullish_pattern"] = (out[pat_cols].rolling(5, min_periods=1).max().max(axis=1) > 0).astype(int)
+        out["has_bearish_pattern"] = (out[pat_cols].rolling(5, min_periods=1).min().min(axis=1) < 0).astype(int)
+    except Exception as e:
+        logger.warning(
+            "TA-Lib not available; candlestick pattern features set to 0. Error: %s. "
+            "If using conda: conda install -c conda-forge ta-lib (in the same env as your script). "
+            "Verify with: python -c \"import talib; print(talib.__file__)\"",
+            e,
+        )
+        for name in [
+            "is_doji", "is_hammer", "is_engulfing", "is_harami",
+            "is_morning_star", "is_evening_star", "is_shooting_star",
+            "is_3_white_soldiers", "is_3_black_crows",
+            "has_bullish_pattern", "has_bearish_pattern",
+        ]:
+            out[name] = 0
 
     # News window feature
     if events and "time" in df.columns:

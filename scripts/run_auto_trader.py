@@ -30,6 +30,7 @@ from hqts.execution.executor import OrderExecutor, OrderType
 from hqts.execution.market_hours import MarketHoursFilter
 from hqts.execution.risk import RiskManager
 from hqts.execution.smc import SMCFilter
+from hqts.logging.reporter import TradeReporter
 from hqts.logging.setup import configure_logging
 
 # ANSI colors for terminal (Windows 10+ supports these)
@@ -102,7 +103,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 
 INTERVAL_SEC = int(os.getenv("AUTO_TRADER_INTERVAL_SEC", "60"))
-MODELS_BASE = Path(os.getenv("MODELS_BASE_DIR", "models"))
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+MODELS_BASE = PROJECT_ROOT / os.getenv("MODELS_BASE_DIR", "models")
 DATA_BUFFER_BARS = 500
 RR_RATIO = 2.0
 TRADE_PROB_THRESHOLD = float(os.getenv("TRADE_PROB_THRESHOLD", "0.6"))
@@ -115,7 +117,6 @@ SYMBOLS = [
     ("USDJPY", "usdjpy"),
     ("GBPUSD", "gbpusd"),
     ("AUDUSD", "audusd"),
-    ("USDCHF", "usdchf"),
     ("USTECH", "ustech"),
     ("USOIL", "usoil"),
 ]
@@ -129,7 +130,6 @@ SYMBOL_RISK_CONFIG = {
     "USDJPY": (9.0, 100.0),
     "GBPUSD": (10.0, 10000.0),
     "AUDUSD": (10.0, 10000.0),
-    "USDCHF": (10.0, 10000.0),
     "USTECH": (1.0, 1.0),
     "USOIL": (10.0, 100.0),
 }
@@ -144,8 +144,7 @@ SYMBOL_MAX_SPREAD_POINTS = {
     "USDJPY": 25,
     "GBPUSD": 25,
     "AUDUSD": 25,
-    "USDCHF": 30,  # Often wider than other majors
-    "USTECH": 50,
+    "USTECH": 250,
     "USOIL": 40,
 }
 
@@ -157,7 +156,7 @@ CRYPTO_SYMBOLS = {"BTCUSD"}
 SYMBOL_MT5_ALIASES = {
     "XAUUSD": ("XAUUSD", "XAUUSDm", "GOLD", "GOLDm", "XAUUSD.a"),
     "XAGUSD": ("XAGUSD", "XAGUSDm", "SILVER", "SILVERm", "XAGUSD.a"),
-    "USTECH": ("US100", "NAS100", "USTEC", "USTECH", "US500", "NDX"),
+    "USTECH": ("$USTECm", "USTECm", "US100", "NAS100", "USTEC", "USTECH", "US500", "NDX"),
     "USOIL": ("USOIL", "WTI", "XTIUSD", "CL", "USOILm", "WTI.a"),
 }
 
@@ -199,10 +198,10 @@ def resolve_mt5_symbol(symbol: str):
         for name in candidates:
             if name.upper() in (target + "M", target + ".A", target + "#"):
                 return name
-        # Broker aliases for metals
+        # Broker aliases (e.g. $USTECm for USTECH, GOLD for XAUUSD)
         for alias in SYMBOL_MT5_ALIASES.get(target, ()):
             for name in candidates:
-                if name.upper() == alias:
+                if name.upper() == alias.upper():
                     return name
         # Partial match for forex (e.g. EURUSD in EURUSDm)
         for name in candidates:
@@ -231,7 +230,7 @@ def _compute_atr(high, low, close, period=14):
     return float(atr[-1]) if len(atr) > 0 else 1.0
 
 
-def run_cycle(paper: bool) -> None:
+def run_cycle(paper: bool, trade_reporter: TradeReporter | None = None) -> None:
     """Run one prediction and trade cycle for all symbols."""
     try:
         from hqts.etl.mt5_live import get_account_info
@@ -380,6 +379,10 @@ def run_cycle(paper: bool) -> None:
             res = executor.place_market_order(order_type, lot, sl_price, tp_price)
 
             if res.success:
+                if trade_reporter and res.ticket is not None:
+                    trade_reporter.log_trade(
+                        symbol, direction, lot, last_close, sl_price, tp_price, ticket=res.ticket
+                    )
                 arrow = "^" if direction == "buy" else "v"
                 color = C.GREEN if direction == "buy" else C.RED
                 cprint(
@@ -402,7 +405,7 @@ def main() -> None:
     args = parser.parse_args()
 
     _enable_windows_ansi()
-    configure_logging(log_file="logs/auto_trader.log")
+    configure_logging(log_file=str(PROJECT_ROOT / "logs" / "auto_trader.log"))
 
     # Apply colored formatter to console (file stays plain)
     root = logging.getLogger()
@@ -424,9 +427,13 @@ def main() -> None:
     mode_color = C.YELLOW if args.paper else C.GREEN
     cprint(f"\n{C.BOLD}Auto-trader started{C.RESET} ({mode_color}{mode}{C.RESET} mode) | interval={INTERVAL_SEC}s\n")
 
+    _trades = os.getenv("TRADES_LOG_PATH", "logs/trades_live.jsonl")
+    trades_path = Path(_trades) if Path(_trades).is_absolute() else PROJECT_ROOT / _trades
+    trade_reporter = TradeReporter(log_path=str(trades_path))
+
     while True:
         try:
-            run_cycle(paper=args.paper)
+            run_cycle(paper=args.paper, trade_reporter=trade_reporter)
         except Exception as e:
             logger.exception("Cycle error: %s", e)
 

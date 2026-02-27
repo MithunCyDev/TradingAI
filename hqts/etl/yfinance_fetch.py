@@ -32,7 +32,6 @@ SYMBOL_MAP = {
     "USDJPY": "JPY=X",
     "GBPUSD": "GBPUSD=X",
     "AUDUSD": "AUDUSD=X",
-    "USDCHF": "CHF=X",
     "USTECH": "NQ=F",  # Nasdaq 100 futures
     "USOIL": "CL=F",   # WTI Crude futures
 }

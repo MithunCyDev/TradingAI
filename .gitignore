@@ -1,5 +1,8 @@
 .venv/
 # .env
+scripts/models/
+scripts/data/
+scripts/logs/
 __pycache__/
 *.pyc
 *.pyo

@@ -30,7 +30,6 @@ SYMBOLS = [
     "USDJPY",
     "GBPUSD",
     "AUDUSD",
-    "USDCHF",
     "USTECH",
     "USOIL",
 ]
@@ -62,6 +61,8 @@ def train_symbol(
     models_base: Path,
     period: str = "6mo",
     force: bool = False,
+    pullback_mode: bool = False,
+    zone_width_atr: float = 0.75,
 ) -> dict | None:
     """
     Train a model for a single symbol.
@@ -78,8 +79,9 @@ def train_symbol(
     data_dir.mkdir(parents=True, exist_ok=True)
 
     suffix = _period_suffix(period)
+    pullback_suffix = "_pullback" if pullback_mode else ""
     raw_path = data_dir / f"{symbol.lower()}_{suffix}.csv"
-    featured_path = data_dir / f"{symbol.lower()}_{suffix}_featured.csv"
+    featured_path = data_dir / f"{symbol.lower()}_{suffix}{pullback_suffix}_featured.csv"
 
     df = fetch_multi_symbol_multi_timeframe(
         symbols=[symbol],
@@ -96,6 +98,8 @@ def train_symbol(
         output_path=featured_path,
         rr_ratio=2.0,
         horizon_bars=16,
+        pullback_mode=pullback_mode,
+        zone_width_atr=zone_width_atr,
     )
 
     featured_df = pd.read_csv(featured_path)
@@ -148,10 +152,27 @@ def main() -> None:
         default="6mo",
         help="Data period (default: 6mo; use 1y, 60d for 2 months)",
     )
+    parser.add_argument(
+        "--pullback",
+        action="store_true",
+        help="Use pullback-aware labeling (train for entries in demand/supply zones)",
+    )
+    parser.add_argument(
+        "--zone-width-atr",
+        type=float,
+        default=0.75,
+        help="ATR multiplier for zone width in pullback mode (default: 0.75)",
+    )
+    parser.add_argument(
+        "--finetune-losses",
+        action="store_true",
+        help="After training, fine-tune on loss samples from data/loss_trades.jsonl",
+    )
     args = parser.parse_args()
 
-    models_base = Path(args.models_dir)
-    data_dir = Path(args.data_dir)
+    project_root = Path(__file__).resolve().parent.parent
+    models_base = Path(args.models_dir) if Path(args.models_dir).is_absolute() else project_root / args.models_dir
+    data_dir = Path(args.data_dir) if Path(args.data_dir).is_absolute() else project_root / args.data_dir
     symbols = [args.symbol] if args.symbol else SYMBOLS
 
     trained = 0
@@ -164,11 +185,25 @@ def main() -> None:
                 models_base=models_base,
                 period=args.period,
                 force=args.force,
+                pullback_mode=args.pullback,
+                zone_width_atr=args.zone_width_atr,
             )
             if result is not None:
                 trained += 1
             else:
                 skipped += 1
+
+            if args.finetune_losses:
+                try:
+                    import importlib.util
+                    finetune_script = Path(__file__).parent / "train_finetune_losses.py"
+                    spec = importlib.util.spec_from_file_location("finetune", finetune_script)
+                    mod = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(mod)
+                    loss_path = Path(__file__).resolve().parent.parent / "data" / "loss_trades.jsonl"
+                    mod.finetune_symbol(sym, models_base, data_dir, loss_path)
+                except Exception as fe:
+                    logger.debug("Finetune %s: %s", sym, fe)
         except Exception as e:
             logger.exception("Failed to train %s: %s", sym, e)
             sys.exit(1)

@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 
 
 def main() -> None:
-    data_dir = Path("data/clean")
+    project_root = Path(__file__).resolve().parent.parent
+    data_dir = project_root / "data" / "clean"
     data_dir.mkdir(parents=True, exist_ok=True)
 
     # Fetch 2 months of 15m, 1h, 4h data for BTCUSD and XAUUSD
@@ -57,7 +58,7 @@ def main() -> None:
         model_type="random_forest",
         test_size=0.2,
         scale_features=True,
-        output_dir="models",
+        output_dir=str(project_root / "models"),
     )
 
     logger.info(

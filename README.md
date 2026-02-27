@@ -38,13 +38,15 @@ A data-driven algorithmic trading system combining custom ML forecasting with Sm
 3. Install: `pip install -r requirements.txt`
 4. Install MetaTrader 5 terminal and log in (see [docs/MT5_SETUP.md](docs/MT5_SETUP.md))
 
+**TA-Lib (candlestick patterns)**: If you see "TA-Lib not available", ensure you use the same Python where TA-Lib is installed. With multiple Pythons, run: `python -m pip install TA-Lib` (or `conda install -c conda-forge ta-lib`). Verify: `python -c "import talib; print(talib.__file__)"`.
+
 ## Quick Start
 
 ```bash
-# Train models for all symbols
+# Train models for all symbols (saved to models/ at project root)
 python scripts/train_all_symbols.py
 
-# Run auto trader (paper mode)
+# Run auto trader (uses models/ from project root)
 python scripts/run_auto_trader.py --paper
 
 # Start prediction API
@@ -66,7 +68,9 @@ uvicorn api.main:app --host 0.0.0.0 --port 8000
 ```
 TradingAI/
 ├── api/            # FastAPI prediction endpoints
-├── data/           # Raw and cleaned datasets
+├── data/
+│   ├── raw/        # Raw OHLCV (optional)
+│   └── clean/      # Featured CSVs, loss_trades.jsonl
 ├── docs/           # Documentation
 ├── hqts/           # Main package
 │   ├── etl/        # Data extraction and cleaning
@@ -74,6 +78,6 @@ TradingAI/
 │   ├── models/     # ML training and inference
 │   └── execution/  # Order execution, risk, SMC filters
 ├── logs/           # Prediction and trade logs
-├── models/         # Persisted models per symbol
+├── models/         # Persisted models per symbol (used by auto trader & API)
 └── scripts/        # CLI entry points
 ```

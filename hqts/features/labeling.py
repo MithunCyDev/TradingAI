@@ -93,6 +93,57 @@ def compute_labels(
     return pd.Series(labels, index=df.index)
 
 
+def compute_labels_pullback(
+    df: pd.DataFrame,
+    rr_ratio: float = 2.0,
+    horizon_bars: int = 16,
+    atr_mult_sl: float = 1.0,
+    atr_mult_tp: Optional[float] = None,
+    zone_width_atr: float = 0.75,
+) -> pd.Series:
+    """
+    Pullback-aware labeling: only assign UP/DOWN when price is in a pullback zone.
+
+    BUY (LABEL_UP): Only when in/near demand zone AND TP hits before SL.
+    SELL (LABEL_DOWN): Only when in/near supply zone AND SL hits before TP (long fails = short wins).
+
+    Bars not in a zone get LABEL_RANGE. This trains the model to recognize
+    pullback entries that have higher success probability.
+    """
+    if df.empty:
+        return pd.Series(dtype=int)
+
+    base_labels = compute_labels(
+        df, rr_ratio=rr_ratio, horizon_bars=horizon_bars,
+        atr_mult_sl=atr_mult_sl, atr_mult_tp=atr_mult_tp,
+    )
+
+    close = df["close"].values
+    atr = df["atr"].values if "atr" in df.columns else np.ones(len(df)) * np.nan
+    swing_low = df["swing_low"].values if "swing_low" in df.columns else df["low"].values
+    swing_high = df["swing_high"].values if "swing_high" in df.columns else df["high"].values
+
+    n = len(close)
+    labels = np.full(n, LABEL_RANGE, dtype=np.int32)
+
+    for i in range(n):
+        if np.isnan(atr[i]) or atr[i] <= 0:
+            continue
+        in_demand = abs(close[i] - swing_low[i]) <= zone_width_atr * atr[i]
+        in_supply = abs(swing_high[i] - close[i]) <= zone_width_atr * atr[i]
+
+        base = int(base_labels.iloc[i])
+
+        if base == LABEL_UP and in_demand:
+            labels[i] = LABEL_UP
+        elif base == LABEL_DOWN and in_supply:
+            labels[i] = LABEL_DOWN
+        else:
+            labels[i] = LABEL_RANGE
+
+    return pd.Series(labels, index=df.index)
+
+
 def compute_labels_short(
     df: pd.DataFrame,
     rr_ratio: float = 2.0,

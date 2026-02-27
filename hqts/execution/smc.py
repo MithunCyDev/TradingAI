@@ -161,10 +161,18 @@ class SMCFilter:
         Returns:
             True if SMC conditions for BUY are met.
         """
-        if df.empty or len(df) < self.ob_lookback:
+        if self.ob_lookback < 1 or df.empty or len(df) < self.ob_lookback:
             return False
         tail = df.tail(self.ob_lookback)
+        if tail.empty:
+            return False
         price = current_price if current_price is not None else float(tail["close"].iloc[-1])
+
+        # When all SMC requirements are disabled, allow trade (ML signal only)
+        if not self.require_order_block and not self.require_fvg and not self.require_liquidity_sweep:
+            if self.require_price_in_zone and not self._price_in_demand_zone(tail, price):
+                return False
+            return True
 
         swing_low = _swing_low_price(tail["low"])
         ob_bull = _bullish_order_block(tail["open"], tail["high"], tail["low"], tail["close"])
@@ -204,10 +212,18 @@ class SMCFilter:
 
     def validate_sell(self, df: pd.DataFrame, current_price: Optional[float] = None) -> bool:
         """Check if current context allows a SELL per SMC rules."""
-        if df.empty or len(df) < self.ob_lookback:
+        if self.ob_lookback < 1 or df.empty or len(df) < self.ob_lookback:
             return False
         tail = df.tail(self.ob_lookback)
+        if tail.empty:
+            return False
         price = current_price if current_price is not None else float(tail["close"].iloc[-1])
+
+        # When all SMC requirements are disabled, allow trade (ML signal only)
+        if not self.require_order_block and not self.require_fvg and not self.require_liquidity_sweep:
+            if self.require_price_in_zone and not self._price_in_supply_zone(tail, price):
+                return False
+            return True
 
         swing_high = _swing_high_price(tail["high"])
         ob_bear = _bearish_order_block(tail["open"], tail["high"], tail["low"], tail["close"])
