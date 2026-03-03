@@ -49,6 +49,7 @@ class TradingOrchestrator:
             require_order_block=self.config.smc.require_order_block,
             require_fvg=self.config.smc.require_fvg,
             require_liquidity_sweep=self.config.smc.require_liquidity_sweep,
+            require_any=self.config.smc.require_any,
             ob_lookback=self.config.smc.ob_lookback_bars,
             fvg_min_size_atr=self.config.smc.fvg_min_size_atr,
             min_ob_strength=self.config.smc.min_ob_strength,

@@ -2,8 +2,9 @@
 """
 Train per-symbol models for HQTS.
 
-Fetches data for each symbol (15m, 1h, 4h) from yfinance with MT5 fallback for 1y,
-runs feature pipeline, and trains a model. Skips symbols that already have a trained model unless --force.
+Fetches data for each symbol across multiple timeframes (1m, 3m, 5m, 45m, 1h, 2h, 4h, 1d, 1w)
+from MT5 over 1 month by default, runs feature pipeline, and trains a model. Skips symbols
+that already have a trained model unless --force.
 """
 
 import argparse
@@ -46,12 +47,20 @@ def _model_exists(model_dir: Path) -> bool:
 
 
 def _period_suffix(period: str) -> str:
-    """Return file suffix from period (e.g. 1y -> 1y, 6mo -> 6mo, 60d -> 2mo)."""
+    """Return file suffix from period (e.g. 2y -> 2y, 1y -> 1y, 3mo -> 3mo, 1mo -> 1mo, 1w -> 1w)."""
     p = period.lower()
+    if "2y" in p or "730" in p:
+        return "2y"
     if "1y" in p or "365" in p:
         return "1y"
     if "6mo" in p or "180" in p:
         return "6mo"
+    if "3mo" in p or "90d" in p:
+        return "3mo"
+    if "1mo" in p or "30d" in p:
+        return "1mo"
+    if "1w" in p or "7d" in p:
+        return "1w"
     return "2mo"
 
 
@@ -59,10 +68,15 @@ def train_symbol(
     symbol: str,
     data_dir: Path,
     models_base: Path,
-    period: str = "6mo",
+    period: str = "1mo",
     force: bool = False,
-    pullback_mode: bool = False,
+    pullback_mode: bool = True,
     zone_width_atr: float = 0.75,
+    model_type: str = "xgboost",
+    n_estimators: int | None = None,
+    max_depth: int | None = None,
+    learning_rate: float | None = None,
+    mt5_only: bool = True,
 ) -> dict | None:
     """
     Train a model for a single symbol.
@@ -85,10 +99,11 @@ def train_symbol(
 
     df = fetch_multi_symbol_multi_timeframe(
         symbols=[symbol],
-        intervals=["15m", "1h", "4h"],
+        intervals=["15m", "1m", "3m", "5m", "45m", "1h", "2h", "4h", "1d", "1w"],
         period=period,
         output_dir=None,
         use_mt5=True,
+        mt5_only=mt5_only,
     )
     df.to_csv(raw_path, index=False)
     logger.info("Saved raw data to %s (%d rows)", raw_path, len(df))
@@ -106,12 +121,21 @@ def train_symbol(
     featured_df["time"] = pd.to_datetime(featured_df["time"])
     featured_df = featured_df.sort_values("time").reset_index(drop=True)
 
+    train_kwargs = {}
+    if n_estimators is not None:
+        train_kwargs["n_estimators"] = n_estimators
+    if max_depth is not None:
+        train_kwargs["max_depth"] = max_depth
+    if learning_rate is not None:
+        train_kwargs["learning_rate"] = learning_rate
+
     result = train_model(
         featured_df,
-        model_type="random_forest",
+        model_type=model_type,
         test_size=0.2,
         scale_features=True,
         output_dir=str(model_dir),
+        **train_kwargs,
     )
 
     logger.info(
@@ -149,13 +173,18 @@ def main() -> None:
     )
     parser.add_argument(
         "--period",
-        default="6mo",
-        help="Data period (default: 6mo; use 1y, 60d for 2 months)",
+        default="1mo",
+        help="Data period (default: 1mo; use 1w, 3mo, 1y, 2y, 6mo, 60d). MT5-only.",
     )
     parser.add_argument(
-        "--pullback",
+        "--no-mt5-only",
         action="store_true",
-        help="Use pullback-aware labeling (train for entries in demand/supply zones)",
+        help="Allow yfinance fallback (default: MT5 only for training)",
+    )
+    parser.add_argument(
+        "--no-pullback",
+        action="store_true",
+        help="Disable pullback-aware labeling (default: pullback enabled)",
     )
     parser.add_argument(
         "--zone-width-atr",
@@ -168,6 +197,15 @@ def main() -> None:
         action="store_true",
         help="After training, fine-tune on loss samples from data/loss_trades.jsonl",
     )
+    parser.add_argument(
+        "--model",
+        choices=["xgboost", "random_forest"],
+        default="xgboost",
+        help="Model type (default: xgboost)",
+    )
+    parser.add_argument("--n-estimators", type=int, default=None)
+    parser.add_argument("--max-depth", type=int, default=None)
+    parser.add_argument("--learning-rate", type=float, default=None)
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parent.parent
@@ -185,8 +223,13 @@ def main() -> None:
                 models_base=models_base,
                 period=args.period,
                 force=args.force,
-                pullback_mode=args.pullback,
+                pullback_mode=not args.no_pullback,
                 zone_width_atr=args.zone_width_atr,
+                model_type=args.model,
+                n_estimators=args.n_estimators,
+                max_depth=args.max_depth,
+                learning_rate=args.learning_rate,
+                mt5_only=not args.no_mt5_only,
             )
             if result is not None:
                 trained += 1

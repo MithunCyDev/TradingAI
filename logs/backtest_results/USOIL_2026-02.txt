@@ -1,0 +1,25 @@
+============================================================
+Backtest: USOIL (model only)
+Period:  2025-12-29 to 2026-02-27
+============================================================
+
+Total trades:   0
+Wins (TP):      0
+Losses (SL):    0
+Range (no hit): 0
+
+Win rate:       N/A
+Total PnL:      0.0000
+Avg PnL/trade:  0.0000
+
+--- Trade log (last 20) ---
+  (no trades)
+
+--- Diagnostic (0 trades) ---
+  Sampled bars: 392
+  prob_up: mean=0.002 max=0.004
+  prob_down: mean=0.002 max=0.004
+  Above threshold 0.005: up=0 down=0
+  Suggestion:  prob_up max=0.004, prob_down max=0.004. Use --threshold 0.004 to get trades.
+
+============================================================

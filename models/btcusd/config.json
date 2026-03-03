@@ -52,7 +52,7 @@
     "sd_bias",
     "is_news_window"
   ],
-  "model_type": "random_forest",
+  "model_type": "xgboost",
   "scale_features": true,
   "label_map": {
     "-1": 0,

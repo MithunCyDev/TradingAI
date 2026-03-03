@@ -1,0 +1,37 @@
+============================================================
+Backtest: BTCUSD (model only)
+Period:  2025-12-30 to 2026-02-28
+============================================================
+
+Total trades:   222
+Wins (TP):      58
+Losses (SL):    142
+Range (no hit): 22
+
+Win rate:       29.0%
+Total PnL:      -7500.5807
+Avg PnL/trade:  -33.7864
+
+--- Trade log (last 20) ---
+  2026-02-23 13:30:00 buy  entry=66348.7500 outcome=sl     pnl=-227.5014
+  2026-02-23 21:30:00 buy  entry=64626.5100 outcome=sl     pnl=-321.1157
+  2026-02-24 08:00:00 buy  entry=63189.1900 outcome=range  pnl=+0.0000
+  2026-02-24 12:15:00 buy  entry=63297.7100 outcome=sl     pnl=-181.9286
+  2026-02-24 20:45:00 buy  entry=64454.6200 outcome=sl     pnl=-244.3386
+  2026-02-25 01:15:00 buy  entry=65946.7300 outcome=sl     pnl=-356.2464
+  2026-02-25 06:00:00 buy  entry=64981.7100 outcome=tp     pnl=+516.1829
+  2026-02-25 10:15:00 buy  entry=65359.5100 outcome=tp     pnl=+430.4357
+  2026-02-25 14:30:00 buy  entry=66247.9600 outcome=tp     pnl=+592.9614
+  2026-02-25 22:15:00 buy  entry=68884.9300 outcome=sl     pnl=-414.0893
+  2026-02-26 03:45:00 buy  entry=68209.6800 outcome=tp     pnl=+614.0843
+  2026-02-26 09:15:00 buy  entry=68184.3000 outcome=tp     pnl=+464.3471
+  2026-02-26 13:30:00 buy  entry=68078.9800 outcome=sl     pnl=-200.8571
+  2026-02-26 21:15:00 buy  entry=67477.7300 outcome=sl     pnl=-308.4207
+  2026-02-27 02:00:00 buy  entry=67319.1800 outcome=sl     pnl=-228.4129
+  2026-02-27 06:15:00 buy  entry=67594.0700 outcome=tp     pnl=+485.6043
+  2026-02-27 10:30:00 buy  entry=66806.3000 outcome=sl     pnl=-299.6093
+  2026-02-27 14:45:00 buy  entry=65879.1500 outcome=sl     pnl=-314.6507
+  2026-02-27 21:15:00 buy  entry=65677.8900 outcome=sl     pnl=-217.5236
+  2026-02-28 05:15:00 buy  entry=65635.5700 outcome=sl     pnl=-129.5600
+
+============================================================

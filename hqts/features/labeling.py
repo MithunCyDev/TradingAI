@@ -144,6 +144,46 @@ def compute_labels_pullback(
     return pd.Series(labels, index=df.index)
 
 
+def compute_labels_triple_barrier(
+    df: pd.DataFrame,
+    rr_ratio: float = 2.0,
+    horizon_bars: int = 16,
+    atr_mult_sl: float = 1.0,
+    atr_mult_tp: Optional[float] = None,
+    vertical_barrier_bars: Optional[int] = None,
+) -> pd.Series:
+    """
+    Explicit triple-barrier labeling: upper (TP), lower (SL), vertical (time).
+
+    For each bar, simulate long entry at close:
+    - Upper barrier: entry + atr * tp_mult (TP hit first -> Up)
+    - Lower barrier: entry - atr * sl_mult (SL hit first -> Down)
+    - Vertical barrier: if neither hit within vertical_barrier_bars -> Range
+
+    Args:
+        df: DataFrame with close, atr (or computed from high/low/close).
+        rr_ratio: Take-profit distance / stop-loss distance.
+        horizon_bars: Max bars to look forward for TP/SL (also used if vertical_barrier_bars is None).
+        atr_mult_sl: ATR multiplier for stop-loss.
+        atr_mult_tp: ATR multiplier for TP. If None, uses atr_mult_sl * rr_ratio.
+        vertical_barrier_bars: Bars until vertical barrier. If None, uses horizon_bars.
+
+    Returns:
+        Series with values: 1 (Up), -1 (Down), 0 (Range).
+    """
+    if df.empty:
+        return pd.Series(dtype=int)
+
+    vert_bars = vertical_barrier_bars if vertical_barrier_bars is not None else horizon_bars
+    return compute_labels(
+        df,
+        rr_ratio=rr_ratio,
+        horizon_bars=vert_bars,
+        atr_mult_sl=atr_mult_sl,
+        atr_mult_tp=atr_mult_tp,
+    )
+
+
 def compute_labels_short(
     df: pd.DataFrame,
     rr_ratio: float = 2.0,

@@ -17,7 +17,7 @@
     "near_fvg_bull",
     "near_fvg_bear"
   ],
-  "model_type": "random_forest",
+  "model_type": "xgboost",
   "scale_features": true,
   "label_map": {
     "-1": 0,

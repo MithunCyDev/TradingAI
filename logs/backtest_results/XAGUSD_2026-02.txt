@@ -1,0 +1,37 @@
+============================================================
+Backtest: XAGUSD (model only)
+Period:  2025-12-29 to 2026-02-27
+============================================================
+
+Total trades:   230
+Wins (TP):      61
+Losses (SL):    146
+Range (no hit): 23
+
+Win rate:       29.5%
+Total PnL:      -34.4038
+Avg PnL/trade:  -0.1496
+
+--- Trade log (last 20) ---
+  2026-02-24 03:45:00 buy  entry=86.9680 outcome=tp     pnl=+1.3816
+  2026-02-24 08:00:00 buy  entry=88.1560 outcome=range  pnl=+0.0000
+  2026-02-24 12:15:00 buy  entry=87.7010 outcome=sl     pnl=-0.3671
+  2026-02-24 16:30:00 buy  entry=87.7950 outcome=sl     pnl=-0.7059
+  2026-02-24 20:45:00 buy  entry=87.2910 outcome=sl     pnl=-0.4484
+  2026-02-25 02:00:00 buy  entry=88.6810 outcome=tp     pnl=+0.9386
+  2026-02-25 06:15:00 buy  entry=90.2010 outcome=range  pnl=+0.0000
+  2026-02-25 10:30:00 buy  entry=90.5440 outcome=sl     pnl=-0.3189
+  2026-02-25 14:45:00 buy  entry=90.6140 outcome=sl     pnl=-0.4972
+  2026-02-25 19:00:00 buy  entry=90.8760 outcome=sl     pnl=-0.3250
+  2026-02-26 00:15:00 buy  entry=88.9010 outcome=sl     pnl=-0.7919
+  2026-02-26 04:30:00 buy  entry=89.3000 outcome=sl     pnl=-0.5640
+  2026-02-26 08:45:00 buy  entry=87.4410 outcome=sl     pnl=-0.6591
+  2026-02-26 13:00:00 buy  entry=86.6370 outcome=sl     pnl=-0.5497
+  2026-02-26 17:15:00 buy  entry=86.6620 outcome=tp     pnl=+1.4124
+  2026-02-26 21:30:00 buy  entry=88.5380 outcome=sl     pnl=-0.3781
+  2026-02-27 02:45:00 buy  entry=89.8170 outcome=range  pnl=+0.0000
+  2026-02-27 07:00:00 buy  entry=90.2010 outcome=sl     pnl=-0.3421
+  2026-02-27 11:15:00 buy  entry=89.7310 outcome=tp     pnl=+0.7673
+  2026-02-27 15:30:00 buy  entry=92.8980 outcome=range  pnl=+0.0000
+
+============================================================

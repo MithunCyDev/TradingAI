@@ -29,6 +29,7 @@ except (ImportError, Exception):
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import TimeSeriesSplit
 from sklearn.preprocessing import StandardScaler
+from sklearn.utils.class_weight import compute_class_weight
 
 
 def _get_available_features(df: pd.DataFrame) -> list[str]:
@@ -86,7 +87,14 @@ def train_model(
     split_idx = int(n * (1 - test_size))
     X_train, X_test = X[:split_idx], X[split_idx:]
     y_train, y_test = y[:split_idx], y[split_idx:]
-    sw_train = sample_weight[:split_idx] if sample_weight is not None and len(sample_weight) == n else None
+
+    if sample_weight is None:
+        classes = np.unique(y_train)
+        weights = compute_class_weight("balanced", classes=classes, y=y_train)
+        class_to_weight = dict(zip(classes, weights))
+        sw_train = np.array([class_to_weight[y] for y in y_train])
+    else:
+        sw_train = sample_weight[:split_idx] if len(sample_weight) == n else None
 
     if cv_splits is not None and cv_splits > 1:
         tscv = TimeSeriesSplit(n_splits=cv_splits)
@@ -100,11 +108,10 @@ def train_model(
                 X_cv_test = scaler_cv.transform(X_cv_test)
             if model_type == "xgboost" and HAS_XGB:
                 clf_cv = xgb.XGBClassifier(
-                    n_estimators=kwargs.get("n_estimators", 200),
-                    max_depth=kwargs.get("max_depth", 6),
-                    learning_rate=kwargs.get("learning_rate", 0.05),
+                    n_estimators=kwargs.get("n_estimators", 300),
+                    max_depth=kwargs.get("max_depth", 5),
+                    learning_rate=kwargs.get("learning_rate", 0.03),
                     random_state=42,
-                    use_label_encoder=False,
                     eval_metric="logloss",
                 )
             else:
@@ -132,11 +139,10 @@ def train_model(
 
     if model_type == "xgboost" and HAS_XGB:
         clf = xgb.XGBClassifier(
-            n_estimators=kwargs.get("n_estimators", 200),
-            max_depth=kwargs.get("max_depth", 6),
-            learning_rate=kwargs.get("learning_rate", 0.05),
+            n_estimators=kwargs.get("n_estimators", 300),
+            max_depth=kwargs.get("max_depth", 5),
+            learning_rate=kwargs.get("learning_rate", 0.03),
             random_state=42,
-            use_label_encoder=False,
             eval_metric="logloss",
         )
     else:
@@ -199,12 +205,23 @@ def main() -> None:
         default=None,
         help="Run TimeSeriesSplit cross-validation with N splits (e.g., 5)",
     )
+    parser.add_argument("--n-estimators", type=int, default=None)
+    parser.add_argument("--max-depth", type=int, default=None)
+    parser.add_argument("--learning-rate", type=float, default=None)
     args = parser.parse_args()
 
     df = pd.read_csv(args.input)
     if "time" in df.columns:
         df["time"] = pd.to_datetime(df["time"])
     df = df.sort_values("time").reset_index(drop=True)
+
+    train_kwargs = {}
+    if args.n_estimators is not None:
+        train_kwargs["n_estimators"] = args.n_estimators
+    if args.max_depth is not None:
+        train_kwargs["max_depth"] = args.max_depth
+    if args.learning_rate is not None:
+        train_kwargs["learning_rate"] = args.learning_rate
 
     result = train_model(
         df,
@@ -213,6 +230,7 @@ def main() -> None:
         scale_features=not args.no_scale,
         output_dir=args.output_dir,
         cv_splits=args.cv_splits,
+        **train_kwargs,
     )
     logger.info("Train accuracy: %.4f, Test accuracy: %.4f", result["train_accuracy"], result["test_accuracy"])
 

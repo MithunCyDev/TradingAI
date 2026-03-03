@@ -200,12 +200,16 @@ def compute_features(
         sym_map = {s: i for i, s in enumerate(sorted(uniq))}
         out["symbol_encoded"] = df["symbol"].map(sym_map).fillna(0).astype(int)
 
-    # Timeframe encoding for multi-timeframe training (15m=0, 1h=1, 4h=2)
+    # Timeframe encoding for multi-timeframe training (1m=0, 3m=1, 5m=2, 45m=3, 1h=4, 2h=5, 4h=6, 1d=7, 1w=8)
     if "timeframe" in df.columns:
-        tf_map = {"15m": 0, "1h": 1, "4h": 2, "60m": 1, "m15": 0}
+        tf_map = {
+            "1m": 0, "3m": 1, "5m": 2, "45m": 3, "15m": 4,
+            "1h": 5, "2h": 6, "4h": 7, "1d": 8, "1w": 9,
+            "60m": 5, "m15": 4,
+        }
         out["timeframe_encoded"] = df["timeframe"].astype(str).str.lower().map(
-            lambda x: tf_map.get(x, 0)
-        ).fillna(0).astype(int)
+            lambda x: tf_map.get(x, 5)
+        ).fillna(5).astype(int)
 
     # Structural SMC primitives
     out["swing_high"] = _swing_high(high, swing_lookback, swing_lookback)

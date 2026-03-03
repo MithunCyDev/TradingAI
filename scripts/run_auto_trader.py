@@ -317,6 +317,7 @@ def run_cycle(paper: bool, trade_reporter: TradeReporter | None = None) -> None:
                 require_order_block=False if symbol in CRYPTO_SYMBOLS else config.smc.require_order_block,
                 require_fvg=config.smc.require_fvg,
                 require_liquidity_sweep=config.smc.require_liquidity_sweep,
+                require_any=config.smc.require_any,
                 ob_lookback=config.smc.ob_lookback_bars,
                 fvg_min_size_atr=config.smc.fvg_min_size_atr,
                 min_ob_strength=config.smc.min_ob_strength,

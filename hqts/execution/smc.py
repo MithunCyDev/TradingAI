@@ -111,6 +111,7 @@ class SMCFilter:
         require_order_block: bool = True,
         require_fvg: bool = False,
         require_liquidity_sweep: bool = False,
+        require_any: bool = False,
         ob_lookback: int = 20,
         fvg_min_size_atr: float = 0.3,
         min_ob_strength: float = 0.0,
@@ -120,6 +121,7 @@ class SMCFilter:
         self.require_order_block = require_order_block
         self.require_fvg = require_fvg
         self.require_liquidity_sweep = require_liquidity_sweep
+        self.require_any = require_any
         self.ob_lookback = ob_lookback
         self.fvg_min_size_atr = fvg_min_size_atr
         self.min_ob_strength = min_ob_strength
@@ -195,15 +197,16 @@ class SMCFilter:
             if pd.isna(max_strength) or max_strength < self.min_ob_strength:
                 has_ob = False
 
-        if self.require_order_block and not has_ob:
-            return False
-        if self.require_fvg and not has_fvg:
-            return False
-        if self.require_liquidity_sweep and not has_sweep:
-            return False
-
-        if not (has_ob or has_fvg or has_sweep):
-            return False
+        if self.require_any:
+            if not (has_ob or has_fvg or has_sweep):
+                return False
+        else:
+            if self.require_order_block and not has_ob:
+                return False
+            if self.require_fvg and not has_fvg:
+                return False
+            if self.require_liquidity_sweep and not has_sweep:
+                return False
 
         if self.require_price_in_zone and not self._price_in_demand_zone(tail, price):
             return False
@@ -246,15 +249,16 @@ class SMCFilter:
             if pd.isna(max_strength) or max_strength < self.min_ob_strength:
                 has_ob = False
 
-        if self.require_order_block and not has_ob:
-            return False
-        if self.require_fvg and not has_fvg:
-            return False
-        if self.require_liquidity_sweep and not has_sweep:
-            return False
-
-        if not (has_ob or has_fvg or has_sweep):
-            return False
+        if self.require_any:
+            if not (has_ob or has_fvg or has_sweep):
+                return False
+        else:
+            if self.require_order_block and not has_ob:
+                return False
+            if self.require_fvg and not has_fvg:
+                return False
+            if self.require_liquidity_sweep and not has_sweep:
+                return False
 
         if self.require_price_in_zone and not self._price_in_supply_zone(tail, price):
             return False

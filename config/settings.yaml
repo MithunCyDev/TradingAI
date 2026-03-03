@@ -1,0 +1,42 @@
+# HQTS Central Configuration
+# Used by training scripts and data fetchers.
+# .env overrides these values when set.
+
+paths:
+  models_dir: models
+  data_dir: data/clean
+  config_file: config/settings.yaml
+
+data:
+  source: dukascopy  # dukascopy | yfinance | mt5
+  symbols:
+    - EURUSD
+    - GBPUSD
+    - USDJPY
+    - AUDUSD
+    - XAUUSD
+    - XAGUSD
+    - BTCUSD
+  timeframes:
+    - 15m
+    - 1h
+    - 4h
+    - 1d
+  start_year: 2004
+  end_year: 2026
+
+training:
+  walk_forward:
+    train_years: 10
+    test_years: 1
+    step_years: 1
+    mode: rolling  # rolling | expanding
+  triple_barrier:
+    atr_mult_sl: 1.0
+    rr_ratio: 2.0
+    horizon_bars: 16
+    vertical_barrier_bars: 16
+  meta_labeling: true
+  regime_aware: true
+  hyperopt: true
+  hyperopt_trials: 50

@@ -111,6 +111,7 @@ class SMCConfig:
     require_order_block: bool = field(default=True)
     require_fvg: bool = False
     require_liquidity_sweep: bool = False
+    require_any: bool = False
     ob_lookback_bars: int = 20
     fvg_min_size_atr: float = 0.3
     zone_width_atr: float = 0.5
@@ -121,6 +122,7 @@ class SMCConfig:
         self.require_order_block = _env_bool("SMC_REQUIRE_ORDER_BLOCK", self.require_order_block)
         self.require_fvg = _env_bool("SMC_REQUIRE_FVG", self.require_fvg)
         self.require_liquidity_sweep = _env_bool("SMC_REQUIRE_LIQUIDITY_SWEEP", self.require_liquidity_sweep)
+        self.require_any = _env_bool("SMC_REQUIRE_ANY", self.require_any)
         raw = _env_int("SMC_OB_LOOKBACK_BARS", self.ob_lookback_bars)
         self.ob_lookback_bars = max(1, raw)  # SMC needs at least 1 bar to validate
         self.fvg_min_size_atr = _env_float("SMC_FVG_MIN_SIZE_ATR", self.fvg_min_size_atr)

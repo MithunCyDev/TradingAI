@@ -1,0 +1,37 @@
+============================================================
+Backtest: XAUUSD (model only)
+Period:  2025-12-29 to 2026-02-27
+============================================================
+
+Total trades:   231
+Wins (TP):      65
+Losses (SL):    138
+Range (no hit): 28
+
+Win rate:       32.0%
+Total PnL:      218.5961
+Avg PnL/trade:  0.9463
+
+--- Trade log (last 20) ---
+  2026-02-24 03:30:00 buy  entry=5179.4530 outcome=sl     pnl=-15.8234
+  2026-02-24 07:45:00 buy  entry=5179.0600 outcome=sl     pnl=-10.5785
+  2026-02-24 12:00:00 buy  entry=5167.5850 outcome=sl     pnl=-7.1853
+  2026-02-24 16:15:00 buy  entry=5143.6420 outcome=range  pnl=+0.0000
+  2026-02-24 20:30:00 buy  entry=5171.9120 outcome=sl     pnl=-8.9324
+  2026-02-25 01:45:00 buy  entry=5176.5540 outcome=tp     pnl=+27.7943
+  2026-02-25 06:00:00 buy  entry=5191.6600 outcome=sl     pnl=-9.9952
+  2026-02-25 10:15:00 buy  entry=5175.2450 outcome=sl     pnl=-8.1610
+  2026-02-25 14:30:00 buy  entry=5175.1010 outcome=tp     pnl=+18.5436
+  2026-02-25 18:45:00 buy  entry=5201.8450 outcome=sl     pnl=-7.8481
+  2026-02-26 00:00:00 buy  entry=5167.7440 outcome=tp     pnl=+28.6630
+  2026-02-26 04:15:00 buy  entry=5194.2220 outcome=sl     pnl=-9.6451
+  2026-02-26 08:30:00 buy  entry=5174.1860 outcome=sl     pnl=-8.6352
+  2026-02-26 12:45:00 buy  entry=5183.8260 outcome=sl     pnl=-8.5538
+  2026-02-26 17:00:00 buy  entry=5179.8210 outcome=sl     pnl=-16.4342
+  2026-02-26 21:15:00 buy  entry=5185.9270 outcome=sl     pnl=-9.1228
+  2026-02-27 02:30:00 buy  entry=5181.3770 outcome=range  pnl=+0.0000
+  2026-02-27 06:45:00 buy  entry=5185.7060 outcome=sl     pnl=-6.5757
+  2026-02-27 11:00:00 buy  entry=5174.0290 outcome=tp     pnl=+12.5299
+  2026-02-27 15:15:00 buy  entry=5231.2540 outcome=range  pnl=+0.0000
+
+============================================================

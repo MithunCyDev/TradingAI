@@ -17,6 +17,7 @@ import pandas as pd
 
 from hqts.features.engineering import compute_features
 from hqts.models.config import INV_LABEL_MAP
+from hqts.models.meta_labeling import load_meta_model, predict_meta_prob
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,7 @@ class InferenceEngine:
 
         self._model = joblib.load(self._model_path)
         self._scaler = joblib.load(self._scaler_path) if self._scaler_path.exists() else None
+        self._meta_model = load_meta_model(model_dir)
         with open(self._config_path) as f:
             self._config = json.load(f)
         self._feature_cols = self._config["feature_cols"]
@@ -85,6 +87,16 @@ class InferenceEngine:
             X = self._scaler.transform(X)
 
         proba = self._model.predict_proba(X)
+        if self._meta_model is not None:
+            primary_preds = self._model.predict(X)
+            meta_probs = predict_meta_prob(self._meta_model, X, primary_preds)
+            for i in range(len(proba)):
+                pred_idx = int(np.argmax(proba[i]))
+                if pred_idx in (0, 2):
+                    proba[i, pred_idx] *= meta_probs[i]
+                    row_sum = proba[i].sum()
+                    if row_sum > 0:
+                        proba[i] /= row_sum
         return proba
 
     def predict(self, df: pd.DataFrame) -> np.ndarray:

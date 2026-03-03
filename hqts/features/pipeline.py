@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 
 from hqts.features.engineering import compute_features
-from hqts.features.labeling import compute_labels, compute_labels_pullback
+from hqts.features.labeling import compute_labels, compute_labels_pullback, compute_labels_triple_barrier
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +25,9 @@ def run_feature_pipeline(
     horizon_bars: int = 16,
     pullback_mode: bool = False,
     zone_width_atr: float = 0.75,
+    triple_barrier: bool = False,
+    vertical_barrier_bars: int | None = None,
+    atr_mult_sl: float = 1.0,
 ) -> pd.DataFrame:
     """
     Load cleaned OHLCV, compute features and labels, optionally save.
@@ -45,7 +48,19 @@ def run_feature_pipeline(
         df["time"] = pd.to_datetime(df["time"])
 
     df = compute_features(df, atr_period=atr_period, rsi_period=rsi_period)
-    if pullback_mode:
+    if triple_barrier:
+        df["label"] = compute_labels_triple_barrier(
+            df,
+            rr_ratio=rr_ratio,
+            horizon_bars=horizon_bars,
+            atr_mult_sl=atr_mult_sl,
+            vertical_barrier_bars=vertical_barrier_bars,
+        )
+        logger.info(
+            "Using triple-barrier labeling (vertical_barrier=%s)",
+            vertical_barrier_bars or horizon_bars,
+        )
+    elif pullback_mode:
         df["label"] = compute_labels_pullback(
             df, rr_ratio=rr_ratio, horizon_bars=horizon_bars, zone_width_atr=zone_width_atr
         )

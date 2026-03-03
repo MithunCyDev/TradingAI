@@ -124,6 +124,11 @@ def fetch_yfinance(
 def _period_to_min_bars(period: str, interval: str) -> int:
     """Return minimum bars expected for period+interval (for fallback threshold)."""
     p = period.lower()
+    if "2y" in p or "730" in p:
+        if interval == "15m":
+            return 50_000
+        if interval == "1h":
+            return 14_000
     if "1y" in p or "365" in p:
         if interval == "15m":
             return 25_000
@@ -143,15 +148,104 @@ def _period_to_min_bars(period: str, interval: str) -> int:
 
 
 def _period_to_count(period: str, interval: str) -> int:
-    """Return bar count for MT5 extract (1y M15 ≈ 35k, 6mo M15 ≈ 17k)."""
+    """Return bar count for MT5 extract. 1m/3m capped at 100k (MT5 limit)."""
     p = period.lower()
+    # 1w: 7 days
+    base_1w = {
+        "1m": 10_080, "3m": 3_360, "5m": 2_016, "45m": 224,
+        "15m": 672, "1h": 168, "2h": 84, "4h": 42, "1d": 7, "1w": 1,
+    }
+    # 1mo: ~30 days
+    base_1mo = {
+        "1m": 43_200, "3m": 14_400, "5m": 8_640, "45m": 960,
+        "15m": 2_880, "1h": 720, "2h": 360, "4h": 180, "1d": 30, "1w": 4,
+    }
+    # 3mo: ~90 days
+    base_3mo = {
+        "1m": 100_000, "3m": 43_200, "5m": 25_920, "45m": 2_880,
+        "15m": 8_640, "1h": 2_160, "2h": 1_080, "4h": 540, "1d": 90, "1w": 13,
+    }
+    base_1y = {
+        "1m": 100_000, "3m": 100_000, "5m": 105_120, "45m": 35_040,
+        "15m": 35_040, "1h": 8_760, "2h": 4_380, "4h": 2_190, "1d": 365, "1w": 52,
+    }
+    if "2y" in p or "730" in p:
+        counts = {
+            "1m": 100_000, "3m": 100_000, "5m": 100_000, "45m": 35_040,
+            "15m": 70_080, "1h": 17_520, "2h": 8_760, "4h": 4_380, "1d": 730, "1w": 104,
+        }
+        return counts.get(interval, 17_520)
     if "1y" in p or "365" in p:
-        return 35_040 if interval == "15m" else 8_760
+        return base_1y.get(interval, 8_760)
+    if "3mo" in p or "90d" in p or "3 month" in p:
+        return base_3mo.get(interval, 2_160)
+    if "1mo" in p or "30d" in p or "1 month" in p:
+        return base_1mo.get(interval, 720)
+    if "1w" in p or "7d" in p or "1 week" in p:
+        return base_1w.get(interval, 168)
     if "6mo" in p or "180" in p:
         return 17_280 if interval == "15m" else 4_320
     if "60d" in p or "2mo" in p:
         return 5_760 if interval == "15m" else 2_000
     return 5_760 if interval == "15m" else 2_000
+
+
+def fetch_symbol_mt5_only(
+    symbol: str,
+    interval: str = "15m",
+    period: str = "1y",
+) -> pd.DataFrame:
+    """
+    Fetch OHLCV from MT5 only (no yfinance fallback).
+
+    Use for training with 1y or 2y of broker data. Requires MT5 terminal running.
+    """
+    from hqts.etl.mt5_live import resolve_mt5_symbol_for_fetch, resolve_btc_symbol
+    from hqts.etl.extract import extract_historical_data, initialize_mt5
+
+    try:
+        import MetaTrader5 as mt5
+    except ImportError:
+        raise RuntimeError("MT5 not installed; cannot fetch MT5-only data")
+
+    if not initialize_mt5():
+        raise RuntimeError("MT5 init failed; cannot fetch historical data")
+
+    if symbol.upper() == "BTCUSD":
+        mt5_sym = resolve_btc_symbol()
+    else:
+        mt5_sym = resolve_mt5_symbol_for_fetch(symbol)
+    if not mt5_sym:
+        raise RuntimeError(f"MT5 symbol not found for {symbol}")
+
+    try:
+        tf_map = {
+            "1m": "M1", "3m": "M1", "5m": "M5", "45m": "M15",
+            "15m": "M15", "1h": "H1", "2h": "H1", "4h": "H4", "1d": "D1", "1w": "W1",
+        }
+        tf = tf_map.get(interval, "H1")
+        fetch_interval = "1h" if interval == "2h" else ("1m" if interval == "3m" else interval)
+        count = _period_to_count(period, fetch_interval)
+        df = extract_historical_data(symbol=mt5_sym, timeframe=tf, count=count)
+        df = clean_and_validate(df)
+        df["symbol"] = symbol.upper()
+        if interval == "2h":
+            df = _resample_to_2h(df, symbol.upper())
+        elif interval == "3m":
+            df = _resample_to_3m(df, symbol.upper())
+        elif interval == "45m":
+            df = _resample_to_45m(df, symbol.upper())
+        else:
+            df["timeframe"] = interval
+        if "timeframe" not in df.columns:
+            df["timeframe"] = interval
+        logger.info("Fetched %d rows for %s from MT5 (%s, %s)", len(df), symbol, mt5_sym, interval)
+        return df
+    finally:
+        try:
+            mt5.shutdown()
+        except Exception:
+            pass
 
 
 def fetch_symbol_with_fallback(
@@ -219,6 +313,63 @@ def fetch_symbol_with_fallback(
             mt5.shutdown()
         except Exception:
             pass
+
+
+def _resample_to_2h(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
+    """Resample 1h OHLCV to 2h bars for a single symbol."""
+    if df.empty or "time" not in df.columns:
+        return pd.DataFrame()
+    df = df.set_index("time").sort_index()
+    resampled = df.resample("2h").agg({
+        "open": "first",
+        "high": "max",
+        "low": "min",
+        "close": "last",
+        "tick_volume": "sum",
+        "spread": "mean",
+    }).dropna()
+    resampled = resampled.reset_index()
+    resampled["symbol"] = symbol
+    resampled["timeframe"] = "2h"
+    return resampled
+
+
+def _resample_to_3m(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
+    """Resample M1 OHLCV to 3m bars for a single symbol."""
+    if df.empty or "time" not in df.columns:
+        return pd.DataFrame()
+    df = df.set_index("time").sort_index()
+    resampled = df.resample("3min").agg({
+        "open": "first",
+        "high": "max",
+        "low": "min",
+        "close": "last",
+        "tick_volume": "sum",
+        "spread": "mean",
+    }).dropna()
+    resampled = resampled.reset_index()
+    resampled["symbol"] = symbol
+    resampled["timeframe"] = "3m"
+    return resampled
+
+
+def _resample_to_45m(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
+    """Resample M15 OHLCV to 45m bars for a single symbol."""
+    if df.empty or "time" not in df.columns:
+        return pd.DataFrame()
+    df = df.set_index("time").sort_index()
+    resampled = df.resample("45min").agg({
+        "open": "first",
+        "high": "max",
+        "low": "min",
+        "close": "last",
+        "tick_volume": "sum",
+        "spread": "mean",
+    }).dropna()
+    resampled = resampled.reset_index()
+    resampled["symbol"] = symbol
+    resampled["timeframe"] = "45m"
+    return resampled
 
 
 def _resample_to_4h(df: pd.DataFrame, symbol: str) -> pd.DataFrame:
@@ -314,55 +465,86 @@ def fetch_multi_symbol(
     return combined
 
 
+def fetch_multi_symbol_mt5_only(
+    symbols: list[str],
+    interval: str = "15m",
+    period: str = "1y",
+) -> pd.DataFrame:
+    """Fetch data for multiple symbols from MT5 only (no yfinance)."""
+    all_dfs = []
+    for sym in symbols:
+        try:
+            df = fetch_symbol_mt5_only(symbol=sym, interval=interval, period=period)
+            all_dfs.append(df)
+        except Exception as e:
+            logger.error("MT5 fetch failed for %s: %s", sym, e)
+    if not all_dfs:
+        raise RuntimeError("No data fetched from MT5 for any symbol")
+    return pd.concat(all_dfs, ignore_index=True).sort_values("time").reset_index(drop=True)
+
+
 def fetch_multi_symbol_multi_timeframe(
     symbols: list[str],
     intervals: list[str] | None = None,
     period: str = "60d",
     output_dir: str | None = "data/clean",
     use_mt5: bool = False,
+    mt5_only: bool = False,
 ) -> pd.DataFrame:
     """
-    Fetch data for multiple symbols and multiple timeframes (15m, 1h, 4h).
+    Fetch data for multiple symbols and multiple timeframes (1m, 3m, 5m, 45m, 1h, 2h, 4h, 1d, 1w).
 
     Args:
         symbols: List of symbols (e.g., ["BTCUSD", "XAUUSD"]).
-        intervals: List of intervals ["15m", "1h", "4h"]. 4h is resampled from 1h.
-        period: Period (60d for 2 months).
+        intervals: List of intervals ["1m", "3m", "5m", "45m", "1h", "2h", "4h", "1d", "1w"].
+        period: Period (60d, 1y, 2y).
         output_dir: Where to save CSV; None to skip.
         use_mt5: If True, try MT5 first for XAUUSD.
+        mt5_only: If True, use MT5 only (no yfinance). For 1y/2y training.
 
     Returns:
         Combined DataFrame with all symbols and timeframes.
     """
-    intervals = intervals or ["15m", "1h", "4h"]
+    intervals = intervals or ["1m", "3m", "5m", "45m", "1h", "2h", "4h", "1d", "1w"]
     all_dfs = []
 
     for interval in intervals:
-        if interval == "4h":
-            # Fetch 1h and resample to 4h
-            df_1h = fetch_multi_symbol(
-                symbols=symbols,
-                interval="1h",
-                period=period,
-                output_dir=None,
-                use_mt5=use_mt5,
-            )
-            for sym in symbols:
-                sym_df = df_1h[df_1h["symbol"] == sym].copy()
-                if sym_df.empty:
-                    continue
-                sym_4h = _resample_to_4h(sym_df, sym)
-                if not sym_4h.empty:
-                    all_dfs.append(sym_4h)
+        mt5_intervals = ("1m", "3m", "5m", "45m", "2h", "1d", "1w")
+        if mt5_only or interval in mt5_intervals:
+            try:
+                df = fetch_multi_symbol_mt5_only(symbols, interval, period)
+            except RuntimeError as e:
+                logger.warning("Skipping interval %s: %s", interval, e)
+                continue
         else:
-            df = fetch_multi_symbol(
-                symbols=symbols,
-                interval=interval,
-                period=period,
-                output_dir=None,
-                use_mt5=use_mt5,
-            )
-            df["timeframe"] = interval
+            if interval == "4h":
+                df_1h = fetch_multi_symbol(
+                    symbols=symbols,
+                    interval="1h",
+                    period=period,
+                    output_dir=None,
+                    use_mt5=use_mt5,
+                )
+                dfs_4h = []
+                for sym in symbols:
+                    sym_df = df_1h[df_1h["symbol"] == sym].copy()
+                    if sym_df.empty:
+                        continue
+                    sym_4h = _resample_to_4h(sym_df, sym)
+                    if not sym_4h.empty:
+                        dfs_4h.append(sym_4h)
+                df = pd.concat(dfs_4h, ignore_index=True) if dfs_4h else pd.DataFrame()
+            else:
+                df = fetch_multi_symbol(
+                    symbols=symbols,
+                    interval=interval,
+                    period=period,
+                    output_dir=None,
+                    use_mt5=use_mt5,
+                )
+        if not df.empty:
+            if "timeframe" not in df.columns:
+                df["timeframe"] = interval
             all_dfs.append(df)
 
     if not all_dfs:
